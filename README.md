@@ -43,7 +43,7 @@ Metrics: packet delivery ratio, end-to-end delay, throughput, jitter, routing ov
 
 ```bash
 ./scripts/setup.sh
-cd ~/proje/ns-allinone-3.44/ns-3.44
+cd ~/Documents/_projects/ns-allinone-3.44/ns-3.44
 ./ns3 configure --enable-examples --enable-tests
 ./ns3 build
 ./ns3 run "ai_routing --routing=aodv --seed=1"

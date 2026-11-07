@@ -11,13 +11,13 @@ modelin gerçek cihazda çalışabilirliğini değerlendirmek.
 
 ## Ortam
 - Ubuntu 22.04, GCC 11.4
-- NS-3.44: ~/proje/ns-allinone-3.44/ns-3.44 (aşağıda NS3_DIR)
-- Bu depo: ~/proje/channel-aware-ai-routing
+- NS-3.44: ~/Documents/_projects/ns-allinone-3.44/ns-3.44 (aşağıda NS3_DIR)
+- Bu depo: ~/Documents/_projects/channel-aware-ai-routing
 - `ns3/` klasörü NS3_DIR/scratch/ai_routing olarak symlink ile bağlı
 - Yeni dosya eklenince: NS3_DIR içinde `./ns3 configure --enable-examples --enable-tests`
 - Derleme: NS3_DIR içinde `./ns3 build`
 - Çalıştırma: NS3_DIR içinde `./ns3 run "ai_routing --routing=aodv --seed=1"`
-- Python sanal ortamı: ~/proje/venv (`source ~/proje/venv/bin/activate`)
+- Python sanal ortamı: ~/Documents/_projects/venv (henüz oluşturulmadı; `source ~/Documents/_projects/venv/bin/activate`)
 
 ## Mimari kararlar
 - Topoloji: sabit düğümlü Wi-Fi ad hoc mesh, 15–20 düğüm (hareketlilik yok)

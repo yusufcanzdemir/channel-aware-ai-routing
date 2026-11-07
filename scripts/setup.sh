@@ -3,7 +3,8 @@
 set -e
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-NS3_DIR="$HOME/proje/ns-allinone-3.44/ns-3.44"
+# NS-3 yolu; farklıysa NS3_DIR ortam değişkeniyle değiştirilebilir
+NS3_DIR="${NS3_DIR:-$HOME/Documents/_projects/ns-allinone-3.44/ns-3.44}"
 LINK="$NS3_DIR/scratch/ai_routing"
 
 if [ ! -d "$NS3_DIR" ]; then

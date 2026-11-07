@@ -1,0 +1,5 @@
+# Simülasyon ham çıktıları; scripts/ ile yeniden üretilebilir
+data/
+
+# Python önbelleği
+__pycache__/
