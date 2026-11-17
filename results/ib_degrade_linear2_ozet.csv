@@ -1,0 +1,2 @@
+scenario,routing,n,pdr_mean,pdr_std,pdr_ci95,delay_ms_mean,delay_ms_std,delay_ms_ci95,throughput_kbps_mean,throughput_kbps_std,throughput_kbps_ci95,jitter_ms_mean,jitter_ms_std,jitter_ms_ci95,avg_hops_mean,avg_hops_std,avg_hops_ci95
+degrade,ai-linear2-ib,30,80.4579,9.3952,3.5082,88.6384,39.5427,14.7655,108.3626,12.6537,4.7250,40.7391,18.6104,6.9492,3.5952,0.3669,0.1370

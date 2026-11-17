@@ -20,6 +20,7 @@
 #include "ns3/wifi-module.h"
 
 #include "ai-controller.h"
+#include "inband-control.h"
 #include "link-monitor.h"
 #include "slow-fading-loss-model.h"
 
@@ -102,6 +103,12 @@ main(int argc, char* argv[])
     uint32_t aiInterval = 1;            // rotalar kaç saniyede bir güncellenir
     double aiMinPdr = 0.3;              // tahmini teslim oranı bunun altındaki link kullanılmaz
     std::string aiDebugCsv = "";        // doğrulama: öznitelik + tahmin dökümü
+    // Kontrol düzlemi: ideal (bilgi anında, ağa yük yok) | inband (ağda gerçek paketler)
+    std::string controlPlane = "ideal";
+    uint32_t controller = 5;      // inband: kontrolcünün çalıştığı düğüm (merkeze yakın)
+    double collectWait = 0.2;     // inband: raporları toplama süresi (s)
+    double bootstrap = 5.0;       // inband: bu ana kadar kontrol paketleri flooding ile
+    uint32_t refresh = 5;         // inband: her N pencerede bir bütün tablolar yeniden gönderilir
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("routing", "Yonlendirme yontemi: aodv | olsr | ai", routing);
@@ -133,6 +140,11 @@ main(int argc, char* argv[])
     cmd.AddValue("aiInterval", "AI: rota guncelleme araligi (pencere)", aiInterval);
     cmd.AddValue("aiMinPdr", "AI: bu tahminin altindaki link kullanilmaz", aiMinPdr);
     cmd.AddValue("aiDebugCsv", "AI: oznitelik/tahmin dokumu (dogrulama icin)", aiDebugCsv);
+    cmd.AddValue("controlPlane", "AI kontrol duzlemi: ideal | inband", controlPlane);
+    cmd.AddValue("controller", "inband: kontrolcu dugumu", controller);
+    cmd.AddValue("collectWait", "inband: rapor toplama suresi (s)", collectWait);
+    cmd.AddValue("bootstrap", "inband: acilista flooding suresi (s)", bootstrap);
+    cmd.AddValue("refresh", "inband: tam tablo tazeleme araligi (pencere)", refresh);
     cmd.Parse(argc, argv);
 
     if (routing != "aodv" && routing != "olsr" && routing != "ai")
@@ -163,6 +175,15 @@ main(int argc, char* argv[])
         if (aiHorizon != 3 && aiPredictor.rfind("linear", 0) == 0)
         {
             method += "-h" + std::to_string(aiHorizon);
+        }
+        if (controlPlane == "inband")
+        {
+            method += "-ib"; // gerçekçi kontrol düzlemi
+        }
+        else if (controlPlane != "ideal")
+        {
+            std::cerr << "HATA: bilinmeyen kontrol duzlemi: " << controlPlane << std::endl;
+            return 1;
         }
         // Model seçilmediyse gecikmeye göre eğitilmiş modeli kullan
         // (gecikme D s ise model t+D+1..t+D+3 aralığını tahmin edecek şekilde eğitildi)
@@ -345,6 +366,7 @@ main(int argc, char* argv[])
     // Yoklamalar simülasyonun başından sonuna kadar.
     std::unique_ptr<LinkMonitor> linkMonitor;
     std::unique_ptr<AiController> ai;
+    std::unique_ptr<InbandControl> inband;
     if (!linkCsv.empty() || routing == "ai")
     {
         linkMonitor = std::make_unique<LinkMonitor>(nodes,
@@ -392,8 +414,25 @@ main(int argc, char* argv[])
         }
         // Her ölçüm penceresi bitince kontrolcü tahmin yapıp rotaları günceller
         AiController* aiPtr = ai.get();
-        linkMonitor->SetWindowCallback(
-            [aiPtr](const std::vector<LinkMonitor::Record>& w) { aiPtr->OnWindow(w); });
+        if (controlPlane == "inband")
+        {
+            // Ölçümler ve rotalar ağın içinden gerçek paketlerle taşınır
+            inband = std::make_unique<InbandControl>(nodes,
+                                                     aiPtr,
+                                                     controller,
+                                                     uint32_t(std::lround(window / probeInterval)),
+                                                     collectWait,
+                                                     bootstrap,
+                                                     refresh);
+            InbandControl* ibPtr = inband.get();
+            linkMonitor->SetWindowCallback(
+                [ibPtr](const std::vector<LinkMonitor::Record>& w) { ibPtr->OnWindow(w); });
+        }
+        else
+        {
+            linkMonitor->SetWindowCallback(
+                [aiPtr](const std::vector<LinkMonitor::Record>& w) { aiPtr->OnWindow(w); });
+        }
     }
 
     FlowMonitorHelper flowmonHelper;
@@ -416,10 +455,19 @@ main(int argc, char* argv[])
     double delaySum = 0.0;  // saniye
     double jitterSum = 0.0; // saniye
     uint64_t jitterCount = 0;
+    // Kontrol trafiği (inband): unicast kontrol paketlerinin link üzerindeki iletim sayısı
+    uint64_t ctrlLinkTx = 0;
 
     for (const auto& [flowId, st] : monitor->GetFlowStats())
     {
         Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow(flowId);
+        if (t.destinationPort == InbandControl::kPort &&
+            t.destinationAddress != Ipv4Address::GetBroadcast())
+        {
+            // Her iletim (kaynakta 1 + her ara düğümde 1) kanalda bir kez yer kaplar
+            ctrlLinkTx += st.txPackets + st.timesForwarded;
+            continue;
+        }
         if (t.destinationPort != kAppPort)
         {
             continue; // yönlendirme protokolünün kendi mesajları, atla
@@ -458,6 +506,24 @@ main(int argc, char* argv[])
     {
         std::cout << "  Rota degisimi    : " << ai->GetRouteChanges() << std::endl;
     }
+    // Kontrol düzlemi istatistikleri (ideal modda hepsi 0)
+    double ctrlTxPerS = 0.0;  // saniyede kanala çıkan kontrol paketi
+    double reportDr = 0.0;    // hesap anında kontrolcüde olan güncel rapor oranı
+    double updateDr = 0.0;    // düğümlere ulaşan güncelleme oranı
+    double ctrlDelayMs = 0.0; // ölçüm penceresi sonu -> rotanın düğümde uygulanması
+    if (inband)
+    {
+        const InbandControl::Stats& cs = inband->GetStats();
+        ctrlTxPerS = double(cs.floodTx + ctrlLinkTx) / (simTime - 1.0);
+        reportDr = cs.reportsSent > 0 ? double(cs.reportsFresh) / cs.reportsSent : 0.0;
+        updateDr = cs.updatesSent > 0 ? double(cs.updatesApplied) / cs.updatesSent : 0.0;
+        ctrlDelayMs = cs.delayCount > 0 ? 1000.0 * cs.delaySum / cs.delayCount : 0.0;
+        std::cout << "  Kontrol paketi/s : " << ctrlTxPerS << " (flood " << cs.floodTx
+                  << ", unicast iletim " << ctrlLinkTx << ")" << std::endl;
+        std::cout << "  Rapor teslim     : " << 100.0 * reportDr << " %" << std::endl;
+        std::cout << "  Guncelleme teslim: " << 100.0 * updateDr << " %" << std::endl;
+        std::cout << "  Kontrol gecikmesi: " << ctrlDelayMs << " ms" << std::endl;
+    }
 
     // CSV'ye bir satır ekle; dosya yoksa önce başlık satırını yaz
     bool newFile = !std::ifstream(csvPath).good();
@@ -471,11 +537,13 @@ main(int argc, char* argv[])
         if (newFile)
         {
             csv << "routing,scenario,seed,nodes,distance,flows,tx_packets,rx_packets,"
-                   "pdr,delay_ms,throughput_kbps,jitter_ms,avg_hops\n";
+                   "pdr,delay_ms,throughput_kbps,jitter_ms,avg_hops,"
+                   "ctrl_tx_per_s,report_dr,update_dr,ctrl_delay_ms\n";
         }
         csv << method << "," << scenario << "," << seed << "," << nNodes << "," << distance
             << "," << nFlows << "," << txPackets << "," << rxPackets << "," << pdr << ","
-            << delayMs << "," << throughputKbps << "," << jitterMs << "," << avgHops << "\n";
+            << delayMs << "," << throughputKbps << "," << jitterMs << "," << avgHops << ","
+            << ctrlTxPerS << "," << reportDr << "," << updateDr << "," << ctrlDelayMs << "\n";
     }
 
     if (!linkCsv.empty())

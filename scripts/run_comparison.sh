@@ -8,6 +8,8 @@
 # Kullanım:
 #   ./scripts/run_comparison.sh degrade          # 10 seed (101-110)
 #   ./scripts/run_comparison.sh fading 20        # 20 seed (101-120)
+#   METHODS="ai:last ai:linear2" EXTRA="--controlPlane=inband" OUT=ib_degrade \
+#       ./scripts/run_comparison.sh degrade 30    # gerçekçi kontrol düzlemi
 #
 # Çıktılar:
 #   data/cmp_<senaryo>.csv          her çalıştırmanın sonuç satırı
@@ -19,10 +21,13 @@ NS3_DIR="${NS3_DIR:-$HOME/Documents/_projects/ns-allinone-3.44/ns-3.44}"
 
 SCENARIO="${1:?senaryo adi gerekli (ornek: degrade)}"
 N_SEEDS="${2:-10}"
-FIRST_SEED=101
+FIRST_SEED="${FIRST_SEED:-101}"
+# EXTRA: tüm çalıştırmalara eklenecek parametreler (ör. "--controlPlane=inband")
+EXTRA="${EXTRA:-}"
+OUT="${OUT:-cmp_$SCENARIO}"
 METHODS="${METHODS:-aodv olsr ai:last ai:ma ai:linear ai:linear2 ai:oracle}"   # ai:<tahminci>
 
-CSV="$REPO_DIR/data/cmp_$SCENARIO.csv"
+CSV="$REPO_DIR/data/$OUT.csv"
 mkdir -p "$REPO_DIR/data"
 rm -f "$CSV"
 
@@ -39,9 +44,9 @@ for m in $METHODS; do
     for seed in $(seq "$FIRST_SEED" $((FIRST_SEED + N_SEEDS - 1))); do
         echo "Calisiyor: scenario=$SCENARIO $m seed=$seed"
         ./ns3 run --no-build \
-            "ai_routing $ARGS --seed=$seed --scenario=$SCENARIO --csv=$CSV" > /dev/null
+            "ai_routing $ARGS $EXTRA --seed=$seed --scenario=$SCENARIO --csv=$CSV" > /dev/null
     done
 done
 
 echo "Ham sonuclar: $CSV"
-python3 "$REPO_DIR/analysis/summarize.py" "$CSV" "$REPO_DIR/results/cmp_${SCENARIO}_ozet.csv"
+python3 "$REPO_DIR/analysis/summarize.py" "$CSV" "$REPO_DIR/results/${OUT}_ozet.csv"

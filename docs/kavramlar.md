@@ -355,6 +355,19 @@ Sonuç:
 - **Gecikme varken** kâhin ile v2 arasında 5-17 puan fark var.
   → Daha iyi tahminin değeri burada. Geliştirme yapılacaksa hedef bu koşul.
 
+### Gerçekçi kontrol düzlemi (`--controlPlane=inband`)
+
+İdeal modda kontrolcü ölçümleri sihirli şekilde anında görüyordu. Gerçekçi modda kontrolcü
+düğüm 5'te çalışır; her düğüm her saniye bir **rapor** paketiyle ölçümlerini yollar, kontrolcü
+0.2 s toplayıp hesaplar ve değişen tabloları **güncelleme** paketleriyle gönderir. Bu paketler
+veri trafiğiyle aynı kanalı paylaşır, kaybolabilir. **In-band** = kontrol paketleri de veri ile
+aynı ağdan, kontrolcünün kurduğu yollardan gider. **Flooding** = paketin komşudan komşuya
+yayılarak herkese ulaştırılması (açılışta, yol henüz yokken kullanılır).
+
+Sonuç: başarım 5-15 puan düşüyor ama AODV/OLSR'nin 24-28 puan önünde kalıyor. Model v2'nin son
+ölçüme üstünlüğü bu koşulda artıyor (kademeli bozulmada +6.3 puan): bilgi eksik ve bayatken
+tahmin daha değerli.
+
 **Wilcoxon testi:** Eşli t-testinin, farkların normal dağıldığını varsaymayan versiyonu.
 
 **Eşli t-testi (paired t-test):** Aynı seed'deki iki yöntemi karşılaştırır (seed başına fark).

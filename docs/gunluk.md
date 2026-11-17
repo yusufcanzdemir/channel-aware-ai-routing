@@ -103,7 +103,23 @@
   - Gecikmeli: kâhin v2'nin belirgin üstünde (degrade 1/2/3 s: +6.5 / +10.1 / +17.3;
     fading +4.8 / +5.5 / +6.7; 2-3 s'de p < 0.05). Daha iyi tahminin değeri gecikmeli koşulda
 
+- Gerçekçi kontrol düzlemi (`--controlPlane=inband`, ns3/inband-control.*): kontrolcü düğüm
+  5'te; raporlar ve rota güncellemeleri ağda gerçek UDP paketi; açılışta/rota yokken flooding.
+  Sonuç (seed 101-130, PDR %, ideal → in-band):
+
+  | | AODV | OLSR | AI-son | AI-v2 | AI-kâhin |
+  | --- | --- | --- | --- | --- | --- |
+  | Fading | 63.4 | 65.9 | 94.8 → 88.9 | 96.3 → 91.4 | 97.0 → 92.7 |
+  | Kademeli bozulma | 56.1 | 53.1 | 89.5 → 74.2 | 92.3 → 80.5 | 92.2 → 90.4 |
+
+  - In-band'de AI hâlâ AODV/OLSR'nin 24-28 puan önünde (29-30/30 seed)
+  - In-band'de model v2 - son ölçüm: degrade +6.3 (p < 0.001), fading +2.5 (p = 0.01)
+  - Kontrol: ~60 paket/s, rapor teslimi %76-98, güncelleme %90-99, gecikme ~230-265 ms
+- docs/rapor/proje_rehberi.pdf: kavramlar + yöntem + bulgular + sunum notları (37 sayfa)
+
 **Takıldığım yerler / öğrendiklerim**
+- Kanal kötüleşince kontrol raporları da kayboluyor (degrade'de %76 zamanında ulaşıyor);
+  tahmine en çok ihtiyaç duyulan anda bilgi en eksik. Model bu koşulda daha değerli
 - v2 doğrulamasında Python'un "hiç duyulmayan ters link" için eğimi yanlış doldurduğu bulundu
   (-3 yerine 0 olmalıydı); --aiDebugCsv karşılaştırması bu tür hataları yakalıyor
 - Asıl kazanç merkezi, link kalitesine bakan yönlendirmeden geliyor (AI-son bile AODV'yi
@@ -119,8 +135,8 @@
 - NetAnim için Qt (qtbase5-dev) kurulu değil; yerine Python ile topoloji animasyonu yapıldı
 
 **Gelecek hafta**
-- Kontrol trafiğini gerçekten simüle et (ölçüm raporları + rota güncellemeleri ağda paket olsun);
-  gerçekçi gecikme değerini de bu verir
+- Kontrolcü konumu (merkez/köşe), toplama süresi ve tazeleme aralığının etkisi
+- Bilginin yaşını (raporun kaç saniye bayat olduğu) modele girdi olarak vermek
 - Gecikmeli koşul için tahmini güçlendir (tavan ile arada 5-17 puan var)
 - Güncelleme aralığı (--aiInterval) deneyi
 - Modeli iyileştirme: olay öncesi erken uyarı özellikleri, sınıflandırma (kötüleşecek mi?)

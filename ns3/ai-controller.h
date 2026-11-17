@@ -54,8 +54,17 @@ class AiController
                  double delay = 0.0,
                  uint32_t interval = 1);
 
-    // LinkMonitor her pencere sonunda bunu çağırır
+    // İdeal kontrol düzlemi: LinkMonitor her pencere sonunda bunu çağırır
+    // (ölçümler anında gelir, rotalar doğrudan ya da --aiDelay kadar sonra yazılır)
     void OnWindow(const std::vector<LinkMonitor::Record>& window);
+
+    // Gerçekçi kontrol düzlemi (InbandControl) için: ölçümleri geçmişe ekler ve yeni
+    // rota tablosunu [src * n + dst] -> sonraki sekme olarak döndürür, YAZMAZ
+    std::vector<int> ProcessWindow(const std::vector<LinkMonitor::Record>& window);
+    // Tek bir düğümün rota satırını (hedef -> sonraki sekme, -1: yok) tablosuna yazar.
+    // Gerçekçi modda rota güncellemesi paketi düğüme ulaştığında çağrılır.
+    void InstallNodeRoutes(uint32_t src, const std::vector<int>& row);
+    uint32_t GetN() const;
 
     // Kâhin için: kanal modeli (yoksa sönümleme yok) ve sönümlemesiz alınan güç
     // nominalRxDbm[tx * n + rx] (mesafe kaybından)
@@ -73,6 +82,7 @@ class AiController
     static constexpr double kMarginUnknown = -3.0; // çerçeve duyulmadıysa varsayılan pay (dB)
 
     void LoadModel(const std::string& path);
+    void PushHistory(const std::vector<LinkMonitor::Record>& window);
     // tx -> rx linkinin tahmini teslim oranı (0..1)
     double Predict(uint32_t tx, uint32_t rx);
     // Lineer modelin girdileri (Python'daki build_features ile birebir aynı):

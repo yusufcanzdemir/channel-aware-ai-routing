@@ -1,0 +1,2 @@
+scenario,routing,n,pdr_mean,pdr_std,pdr_ci95,delay_ms_mean,delay_ms_std,delay_ms_ci95,throughput_kbps_mean,throughput_kbps_std,throughput_kbps_ci95,jitter_ms_mean,jitter_ms_std,jitter_ms_ci95,avg_hops_mean,avg_hops_std,avg_hops_ci95
+degrade,ai-oracle-ib,30,90.3887,6.4332,2.4022,59.8807,26.5150,9.9009,121.7376,8.6645,3.2354,28.6700,12.3748,4.6208,3.4038,0.3444,0.1286

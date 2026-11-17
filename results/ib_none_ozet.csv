@@ -1,0 +1,4 @@
+scenario,routing,n,pdr_mean,pdr_std,pdr_ci95,delay_ms_mean,delay_ms_std,delay_ms_ci95,throughput_kbps_mean,throughput_kbps_std,throughput_kbps_ci95,jitter_ms_mean,jitter_ms_std,jitter_ms_ci95,avg_hops_mean,avg_hops_std,avg_hops_ci95
+none,ai-last-ib,10,98.6302,4.2523,3.0419,22.2135,2.9712,2.1254,132.8374,5.7272,4.0970,6.2743,2.2030,1.5759,3.6099,0.3134,0.2242
+none,ai-linear2-ib,10,98.6528,4.2071,3.0096,21.5651,2.4819,1.7754,132.8680,5.6662,4.0533,5.4447,1.6082,1.1505,3.5952,0.3142,0.2248
+none,ai-oracle-ib,10,97.6491,7.3284,5.2424,21.2714,4.1220,2.9487,131.5160,9.8700,7.0606,5.2423,2.8269,2.0223,3.5471,0.4119,0.2947

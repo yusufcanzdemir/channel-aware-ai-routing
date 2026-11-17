@@ -134,24 +134,8 @@ AiController::GetRouteChanges() const
 void
 AiController::OnWindow(const std::vector<LinkMonitor::Record>& window)
 {
-    m_now = Simulator::Now().GetSeconds();
     // 1) Ölçümleri geçmişe ekle
-    for (const auto& r : window)
-    {
-        uint32_t idx = r.tx * m_n + r.rx;
-        double pdr = r.sent > 0 ? double(r.recv) / r.sent : 0.0;
-        double snr = r.nFrames > 0 ? r.snrSum / r.nFrames : std::nan("");
-        double rssi = r.nFrames > 0 ? r.rssiSum / r.nFrames : std::nan("");
-        m_pdrHist[idx].push_front(pdr);
-        m_snrHist[idx].push_front(snr);
-        m_rssiHist[idx].push_front(rssi);
-        if (m_pdrHist[idx].size() > kHistory)
-        {
-            m_pdrHist[idx].pop_back();
-            m_snrHist[idx].pop_back();
-            m_rssiHist[idx].pop_back();
-        }
-    }
+    PushHistory(window);
     // Rotalar sadece her m_interval pencerede bir yeniden hesaplanır
     m_windowCount++;
     if (m_windowCount % m_interval != 0)
@@ -168,6 +152,35 @@ AiController::OnWindow(const std::vector<LinkMonitor::Record>& window)
     else
     {
         InstallRoutes(routes);
+    }
+}
+
+std::vector<int>
+AiController::ProcessWindow(const std::vector<LinkMonitor::Record>& window)
+{
+    PushHistory(window);
+    return ComputeRoutes();
+}
+
+void
+AiController::PushHistory(const std::vector<LinkMonitor::Record>& window)
+{
+    m_now = Simulator::Now().GetSeconds();
+    for (const auto& r : window)
+    {
+        uint32_t idx = r.tx * m_n + r.rx;
+        double pdr = r.sent > 0 ? double(r.recv) / r.sent : 0.0;
+        double snr = r.nFrames > 0 ? r.snrSum / r.nFrames : std::nan("");
+        double rssi = r.nFrames > 0 ? r.rssiSum / r.nFrames : std::nan("");
+        m_pdrHist[idx].push_front(pdr);
+        m_snrHist[idx].push_front(snr);
+        m_rssiHist[idx].push_front(rssi);
+        if (m_pdrHist[idx].size() > kHistory)
+        {
+            m_pdrHist[idx].pop_back();
+            m_snrHist[idx].pop_back();
+            m_rssiHist[idx].pop_back();
+        }
     }
 }
 
@@ -377,42 +390,56 @@ AiController::ComputeRoutes()
 void
 AiController::InstallRoutes(std::vector<int> newNextHop)
 {
-    // Değişen düğümlerin rota tablolarını yeniden yaz
+    // Her düğümün satırını (hedef -> sonraki sekme) ayrı ayrı yaz
     for (uint32_t src = 0; src < m_n; ++src)
     {
-        bool changed = false;
-        for (uint32_t dst = 0; dst < m_n; ++dst)
+        std::vector<int> row(newNextHop.begin() + src * m_n,
+                             newNextHop.begin() + (src + 1) * m_n);
+        InstallNodeRoutes(src, row);
+    }
+}
+
+void
+AiController::InstallNodeRoutes(uint32_t src, const std::vector<int>& row)
+{
+    bool changed = false;
+    for (uint32_t dst = 0; dst < m_n; ++dst)
+    {
+        if (row[dst] != m_nextHop[src * m_n + dst])
         {
-            if (newNextHop[src * m_n + dst] != m_nextHop[src * m_n + dst])
-            {
-                changed = true;
-                m_routeChanges++;
-            }
-        }
-        if (!changed)
-        {
-            continue;
-        }
-        Ptr<Ipv4StaticRouting> rt = m_routing[src];
-        // Önce eski host rotalarını sil (sondan başa, indeksler kaymasın).
-        // Alt ağ rotası (10.1.1.0/24) kalır: rotası olmayan hedefe doğrudan gönderilir.
-        for (int i = int(rt->GetNRoutes()) - 1; i >= 0; --i)
-        {
-            if (rt->GetRoute(i).IsHost())
-            {
-                rt->RemoveRoute(i);
-            }
-        }
-        for (uint32_t dst = 0; dst < m_n; ++dst)
-        {
-            int nh = newNextHop[src * m_n + dst];
-            if (dst != src && nh >= 0)
-            {
-                rt->AddHostRouteTo(m_addr[dst], m_addr[nh], m_ifIndex[src]);
-            }
+            changed = true;
+            m_routeChanges++;
+            m_nextHop[src * m_n + dst] = row[dst];
         }
     }
-    m_nextHop = newNextHop;
+    if (!changed)
+    {
+        return;
+    }
+    Ptr<Ipv4StaticRouting> rt = m_routing[src];
+    // Önce eski host rotalarını sil (sondan başa, indeksler kaymasın).
+    // Alt ağ rotası (10.1.1.0/24) kalır: rotası olmayan hedefe doğrudan gönderilir.
+    for (int i = int(rt->GetNRoutes()) - 1; i >= 0; --i)
+    {
+        if (rt->GetRoute(i).IsHost())
+        {
+            rt->RemoveRoute(i);
+        }
+    }
+    for (uint32_t dst = 0; dst < m_n; ++dst)
+    {
+        int nh = row[dst];
+        if (dst != src && nh >= 0)
+        {
+            rt->AddHostRouteTo(m_addr[dst], m_addr[nh], m_ifIndex[src]);
+        }
+    }
+}
+
+uint32_t
+AiController::GetN() const
+{
+    return m_n;
 }
 
 } // namespace ns3

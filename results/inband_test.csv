@@ -1,0 +1,19 @@
+scenario,karsilastirma,n,fark,fark_ci95,ilk_daha_iyi,p_ttest,p_wilcoxon
+none,in-band: model v2 - son ölçüm,10,0.0227,0.0364,4,0.1932,0.1875
+none,in-band: kâhin - model v2,10,-1.0038,6.3267,3,0.7279,0.8438
+none,son ölçüm: in-band - ideal,10,-1.2340,3.0121,3,0.3783,0.8125
+none,model v2: in-band - ideal,10,-1.0755,3.0877,5,0.4510,0.3750
+none,in-band model v2 - AODV,10,-0.5924,2.8401,9,0.6482,0.0781
+none,in-band model v2 - OLSR,10,5.6662,3.6847,10,0.0070,0.0020
+fading,in-band: model v2 - son ölçüm,30,2.4830,1.8506,22,0.0103,0.0058
+fading,in-band: kâhin - model v2,30,1.2994,4.7779,20,0.5823,0.1048
+fading,son ölçüm: in-band - ideal,30,-5.8201,2.5581,4,0.0001,0.0000
+fading,model v2: in-band - ideal,30,-4.8880,2.9516,6,0.0020,0.0002
+fading,in-band model v2 - AODV,30,28.0793,4.7072,29,0.0000,0.0000
+fading,in-band model v2 - OLSR,30,25.5045,4.0624,30,0.0000,0.0000
+degrade,in-band: model v2 - son ölçüm,30,6.2968,3.5000,24,0.0009,0.0001
+degrade,in-band: kâhin - model v2,30,9.9308,4.1279,25,0.0000,0.0000
+degrade,son ölçüm: in-band - ideal,30,-15.2931,4.3625,1,0.0000,0.0000
+degrade,model v2: in-band - ideal,30,-11.8164,3.3418,2,0.0000,0.0000
+degrade,in-band model v2 - AODV,30,24.3610,5.7155,29,0.0000,0.0000
+degrade,in-band model v2 - OLSR,30,27.3759,4.0333,30,0.0000,0.0000
