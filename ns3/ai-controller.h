@@ -4,6 +4,8 @@
 //   1) LinkMonitor'dan her yönlü linkin teslim oranı ve SNR ölçümünü alır, geçmişe ekler
 //   2) Her link için önümüzdeki birkaç saniyenin teslim oranını tahmin eder
 //        "linear": Python'da eğitilmiş lineer model (ml/models/linear_h3.txt)
+//        "linear2": aynı, ek öznitelikler: sinyal payı (RSSI - algılama eşiği) ve ters yön
+//                   linkinin ölçümleri (ml/models/linear2_h3.txt)
 //        "last"  : tahmin yok, son ölçüm kullanılır (karşılaştırma için)
 //        "ma"    : son 5 ölçümün ortalaması (karşılaştırma için)
 //   3) Link maliyeti = 1 / (p_gidiş * p_dönüş)  (tahmine dayalı ETX: unicast veri bir yöne,
@@ -59,12 +61,17 @@ class AiController
 
   private:
     static const uint32_t kHistory = 10; // modelin baktığı geçmiş pencere sayısı
+    static constexpr double kDetectDbm = -82.0;    // NS-3 algılama eşiği (dBm)
+    static constexpr double kMarginUnknown = -3.0; // çerçeve duyulmadıysa varsayılan pay (dB)
 
     void LoadModel(const std::string& path);
     // tx -> rx linkinin tahmini teslim oranı (0..1)
     double Predict(uint32_t tx, uint32_t rx);
-    // Lineer modelin girdileri (Python'daki build_features ile birebir aynı)
-    std::map<std::string, double> Features(uint32_t idx) const;
+    // Lineer modelin girdileri (Python'daki build_features ile birebir aynı):
+    // linkin kendi öznitelikleri + ters yön linkinden "rev_" önekli olanlar
+    std::map<std::string, double> Features(uint32_t tx, uint32_t rx) const;
+    // Tek bir yönlü linkin kendi öznitelikleri
+    std::map<std::string, double> OwnFeatures(uint32_t idx) const;
     // Tahmin + maliyet + Dijkstra: [src * n + dst] -> sonraki sekme (-1: rota yok)
     std::vector<int> ComputeRoutes();
     // Rota tablosunu düğümlere yazar (gecikmeli olarak da çağrılabilir)
@@ -82,7 +89,8 @@ class AiController
 
     // Link geçmişi [tx * n + rx]; ön taraf en yeni ölçüm
     std::vector<std::deque<double>> m_pdrHist;
-    std::vector<std::deque<double>> m_snrHist; // SNR (dB), bilinmiyorsa NaN
+    std::vector<std::deque<double>> m_snrHist;  // SNR (dB), bilinmiyorsa NaN
+    std::vector<std::deque<double>> m_rssiHist; // alınan güç (dBm), bilinmiyorsa NaN
 
     double m_intercept = 0.0;
     std::map<std::string, double> m_coef;

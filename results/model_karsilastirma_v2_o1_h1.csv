@@ -1,0 +1,5 @@
+,MAE,RMSE,kotu_link_precision,kotu_link_recall,kotu_link_F1,MAE_iyilesme_%,RMSE_iyilesme_%
+Son değer,0.1601,0.2484,0.8304,0.8305,0.8305,0.0000,0.0000
+Hareketli ort.,0.1759,0.2581,0.8004,0.8297,0.8148,-9.8715,-3.9082
+Lineer regresyon,0.1646,0.2230,0.8314,0.8566,0.8438,-2.7673,10.2359
+Gradient Boosting,0.1616,0.2202,0.8312,0.8632,0.8469,-0.9538,11.3558

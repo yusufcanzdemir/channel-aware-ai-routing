@@ -75,7 +75,15 @@
   eşli t-testi p = 0.012, Wilcoxon p = 0.0007. Tek tek gecikmelerde 10 seed anlamlılık için yetmiyor.
   Gecikme 3 s'de bile AI, AODV/OLSR'nin 15-20 puan üstünde
 
+- Model v2 (sinyal payı + ters yön linki öznitelikleri, `--aiPredictor=linear2`).
+  C++/Python uyumu doğrulandı (tahmin farkı < 1e-5). Gecikmeli koşullarda son ölçüme göre
+  kazanç (60 eş): v1 +2.9 puan (p = 0.012) → v2 **+5.6 puan** (60'ın 50'sinde önde, p < 0.0001).
+  Fading + 3 s gecikme: son ölçüm %80.5, v1 %85.0, v2 %90.3. Gecikmesiz degrade'de bile v2
+  anlamlı şekilde önde (+3.2, p = 0.04)
+
 **Takıldığım yerler / öğrendiklerim**
+- v2 doğrulamasında Python'un "hiç duyulmayan ters link" için eğimi yanlış doldurduğu bulundu
+  (-3 yerine 0 olmalıydı); --aiDebugCsv karşılaştırması bu tür hataları yakalıyor
 - Asıl kazanç merkezi, link kalitesine bakan yönlendirmeden geliyor (AI-son bile AODV'yi
   30+ puan geçiyor). Tahmin modelinin "son ölçüm"e katkısı istatistiksel olarak anlamlı değil
   (degrade +1.2 puan, eşli t-testi p = 0.46; fading -1.9, p = 0.27). Model 5 s ortalamayı
@@ -89,6 +97,7 @@
 - NetAnim için Qt (qtbase5-dev) kurulu değil; yerine Python ile topoloji animasyonu yapıldı
 
 **Gelecek hafta**
+- run_comparison.sh'ye linear2 ekle (AODV/OLSR'ye karşı ana tabloyu v2 ile güncelle)
 - Gecikme deneyini 30 seed ile tekrarla (gecikme başına anlamlılık için)
 - Güncelleme aralığı (--aiInterval) deneyi
 - Modeli iyileştirme: olay öncesi erken uyarı özellikleri, sınıflandırma (kötüleşecek mi?)

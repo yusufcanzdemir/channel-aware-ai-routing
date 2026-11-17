@@ -29,9 +29,10 @@ AiController::AiController(NodeContainer nodes,
       m_interval(interval)
 {
     NS_ABORT_MSG_IF(interval == 0, "aiInterval en az 1 olmali");
-    NS_ABORT_MSG_IF(predictor != "linear" && predictor != "last" && predictor != "ma",
+    NS_ABORT_MSG_IF(predictor != "linear" && predictor != "linear2" && predictor != "last" &&
+                        predictor != "ma",
                     "Bilinmeyen aiPredictor: " << predictor);
-    if (predictor == "linear")
+    if (predictor == "linear" || predictor == "linear2")
     {
         LoadModel(modelPath);
     }
@@ -48,6 +49,7 @@ AiController::AiController(NodeContainer nodes,
     }
     m_pdrHist.resize(m_n * m_n);
     m_snrHist.resize(m_n * m_n);
+    m_rssiHist.resize(m_n * m_n);
     m_nextHop.assign(m_n * m_n, -1);
 }
 
@@ -103,12 +105,15 @@ AiController::OnWindow(const std::vector<LinkMonitor::Record>& window)
         uint32_t idx = r.tx * m_n + r.rx;
         double pdr = r.sent > 0 ? double(r.recv) / r.sent : 0.0;
         double snr = r.nFrames > 0 ? r.snrSum / r.nFrames : std::nan("");
+        double rssi = r.nFrames > 0 ? r.rssiSum / r.nFrames : std::nan("");
         m_pdrHist[idx].push_front(pdr);
         m_snrHist[idx].push_front(snr);
+        m_rssiHist[idx].push_front(rssi);
         if (m_pdrHist[idx].size() > kHistory)
         {
             m_pdrHist[idx].pop_back();
             m_snrHist[idx].pop_back();
+            m_rssiHist[idx].pop_back();
         }
     }
     // Rotalar sadece her m_interval pencerede bir yeniden hesaplanır
@@ -131,7 +136,28 @@ AiController::OnWindow(const std::vector<LinkMonitor::Record>& window)
 }
 
 std::map<std::string, double>
-AiController::Features(uint32_t idx) const
+AiController::Features(uint32_t tx, uint32_t rx) const
+{
+    std::map<std::string, double> f = OwnFeatures(tx * m_n + rx);
+    // Ters yön (rx -> tx): sönümleme iki yönde aynı olduğu için ek bir ölçüm kaynağı
+    std::map<std::string, double> r = OwnFeatures(rx * m_n + tx);
+    for (const char* name : {"pdr_l0",
+                             "pdr_l1",
+                             "pdr_l2",
+                             "pdr_mean5",
+                             "pdr_mean10",
+                             "pdr_trend",
+                             "mar_l0",
+                             "mar_mean5",
+                             "mar_slope"})
+    {
+        f[std::string("rev_") + name] = r[name];
+    }
+    return f;
+}
+
+std::map<std::string, double>
+AiController::OwnFeatures(uint32_t idx) const
 {
     const auto& p = m_pdrHist[idx];
     const auto& s = m_snrHist[idx];
@@ -158,6 +184,23 @@ AiController::Features(uint32_t idx) const
     f["pdr_trend"] = p[0] - p[2];
     bool both = !std::isnan(s[0]) && !std::isnan(s[2]);
     f["snr_trend"] = both ? s[0] - s[2] : 0.0;
+
+    // Sinyal payı: alınan gücün algılama eşiğinin kaç dB üstünde olduğu
+    const auto& rs = m_rssiHist[idx];
+    double mar[5];
+    double sumMar = 0.0;
+    double maxMar = -std::numeric_limits<double>::infinity();
+    for (uint32_t k = 0; k < 5; ++k)
+    {
+        mar[k] = std::isnan(rs[k]) ? kMarginUnknown : rs[k] - kDetectDbm;
+        f["mar_l" + std::to_string(k)] = mar[k];
+        sumMar += mar[k];
+        maxMar = std::max(maxMar, mar[k]);
+    }
+    f["mar_mean5"] = sumMar / 5.0;
+    f["mar_max5"] = maxMar;
+    // Son 5 noktanın en küçük kareler eğimi (dB/s); mar[0] en yeni
+    f["mar_slope"] = (2 * mar[0] + mar[1] - mar[3] - 2 * mar[4]) / 10.0;
     return f;
 }
 
@@ -186,7 +229,7 @@ AiController::Predict(uint32_t tx, uint32_t rx)
     }
 
     // Lineer model: kesişim + Σ katsayı * öznitelik, sonra [0, 1] aralığına kırp
-    std::map<std::string, double> f = Features(idx);
+    std::map<std::string, double> f = Features(tx, rx);
     double y = m_intercept;
     for (const auto& [name, c] : m_coef)
     {

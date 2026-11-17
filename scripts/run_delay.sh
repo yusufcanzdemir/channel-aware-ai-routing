@@ -8,10 +8,12 @@
 # Kullanım:
 #   ./scripts/run_delay.sh                # degrade + fading, gecikme 0-3 s, 10 seed
 #   ./scripts/run_delay.sh 20             # 20 seed
+#   PREDICTORS="linear2 linear2:h1" OUT=delay_v2 ./scripts/run_delay.sh
+#       tahminci:hN -> --aiHorizon=N ile o ufka göre eğitilmiş model
 #
 # Çıktılar:
-#   data/delay.csv            her çalıştırmanın sonuç satırı (yöntem adı: ai-linear-d2 gibi)
-#   results/delay_ozet.csv    senaryo × yöntem başına ortalama ± %95 GA
+#   data/<OUT>.csv            her çalıştırmanın sonuç satırı (yöntem adı: ai-linear-d2 gibi)
+#   results/<OUT>_ozet.csv    senaryo × yöntem başına ortalama ± %95 GA
 set -e
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,9 +23,10 @@ N_SEEDS="${1:-10}"
 FIRST_SEED=101
 SCENARIOS="degrade fading"
 DELAYS="0 1 2 3"
-PREDICTORS="last linear"
+PREDICTORS="${PREDICTORS:-last linear}"
+OUT="${OUT:-delay}"
 
-CSV="$REPO_DIR/data/delay.csv"
+CSV="$REPO_DIR/data/$OUT.csv"
 mkdir -p "$REPO_DIR/data"
 rm -f "$CSV"
 
@@ -35,7 +38,11 @@ for sc in $SCENARIOS; do
         for p in $PREDICTORS; do
             for seed in $(seq "$FIRST_SEED" $((FIRST_SEED + N_SEEDS - 1))); do
                 echo "Calisiyor: $sc gecikme=$d $p seed=$seed"
-                ./ns3 run --no-build "ai_routing --routing=ai --aiPredictor=$p --aiDelay=$d \
+                pred="${p%%:*}"
+                hz=3
+                [[ "$p" == *:h* ]] && hz="${p##*:h}"
+                ./ns3 run --no-build "ai_routing --routing=ai --aiPredictor=$pred --aiHorizon=$hz \
+                    --aiDelay=$d \
                     --seed=$seed --scenario=$sc --csv=$CSV" > /dev/null
             done
         done
@@ -43,4 +50,4 @@ for sc in $SCENARIOS; do
 done
 
 echo "Ham sonuclar: $CSV"
-python3 "$REPO_DIR/analysis/summarize.py" "$CSV" "$REPO_DIR/results/delay_ozet.csv"
+python3 "$REPO_DIR/analysis/summarize.py" "$CSV" "$REPO_DIR/results/${OUT}_ozet.csv"

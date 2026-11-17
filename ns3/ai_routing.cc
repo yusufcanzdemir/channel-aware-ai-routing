@@ -95,7 +95,8 @@ main(int argc, char* argv[])
     double probeInterval = 0.1; // yoklama aralığı (s): saniyede 10 yoklama
     double window = 1.0;        // ölçüm penceresi (s)
     // AI kontrolcü ayarları (--routing=ai)
-    std::string aiPredictor = "linear"; // linear | last | ma
+    std::string aiPredictor = "linear"; // linear | linear2 | last | ma
+    uint32_t aiHorizon = 3;             // model kaç saniyelik ortalamayı tahmin ediyor
     std::string aiModel = "";           // boş: gecikmeye uygun model otomatik seçilir
     double aiDelay = 0.0;               // rotaların düğümlere ulaşma gecikmesi (s)
     uint32_t aiInterval = 1;            // rotalar kaç saniyede bir güncellenir
@@ -125,7 +126,8 @@ main(int argc, char* argv[])
     cmd.AddValue("linkCsv", "Link olcum CSV dosyasi (bos = olcum kapali)", linkCsv);
     cmd.AddValue("probeInterval", "Yoklama paketi araligi (s)", probeInterval);
     cmd.AddValue("window", "Link olcum penceresi (s)", window);
-    cmd.AddValue("aiPredictor", "AI tahminci: linear | last | ma", aiPredictor);
+    cmd.AddValue("aiPredictor", "AI tahminci: linear | linear2 | last | ma", aiPredictor);
+    cmd.AddValue("aiHorizon", "AI: modelin tahmin ufku (s), model dosyasini secer", aiHorizon);
     cmd.AddValue("aiModel", "Lineer model katsayi dosyasi", aiModel);
     cmd.AddValue("aiDelay", "AI: rota uygulama gecikmesi (s), 0 = ideal", aiDelay);
     cmd.AddValue("aiInterval", "AI: rota guncelleme araligi (pencere)", aiInterval);
@@ -158,13 +160,19 @@ main(int argc, char* argv[])
         {
             method += "-i" + std::to_string(aiInterval);
         }
+        if (aiHorizon != 3 && aiPredictor.rfind("linear", 0) == 0)
+        {
+            method += "-h" + std::to_string(aiHorizon);
+        }
         // Model seçilmediyse gecikmeye göre eğitilmiş modeli kullan
         // (gecikme D s ise model t+D+1..t+D+3 aralığını tahmin edecek şekilde eğitildi)
         if (aiModel.empty())
         {
+            // Örnek: linear_h3.txt, linear_o2_h3.txt, linear2_o1_h1.txt
             long d = std::lround(aiDelay);
-            aiModel = RepoPath(d == 0 ? "ml/models/linear_h3.txt"
-                                      : "ml/models/linear_o" + std::to_string(d) + "_h3.txt");
+            std::string h = "_h" + std::to_string(aiHorizon) + ".txt";
+            aiModel = RepoPath("ml/models/" + aiPredictor +
+                               (d == 0 ? "" : "_o" + std::to_string(d)) + h);
         }
     }
 

@@ -329,6 +329,18 @@ verilmiş olur. Her gecikme için "o kadar ileriyi" tahmin eden ayrı bir model 
 bayatladığı gerçekçi koşullarda değer katıyor. Kazanç mütevazı. Asıl büyük kazanç hâlâ merkezi
 yönlendirmenin kendisinden geliyor.
 
+### Model v2 (`--aiPredictor=linear2`)
+
+İlk modele iki fiziksel bilgi eklendi:
+- **Sinyal payı (margin):** Alınan gücün algılama eşiğinin (-82 dBm) kaç dB üstünde olduğu.
+  Pay 1 dB'e düştüyse link kopmanın eşiğinde demektir. Teslim oranı henüz 1.0 görünse bile.
+- **Ters yön linki:** 5→6 linkinin geleceğini tahmin ederken 6→5 linkinin ölçümlerine de bakılır.
+  Sönümleme iki yönde aynı olduğu için bu, aynı kanalın ikinci bir ölçümüdür ve gürültüyü azaltır.
+
+Gecikmeli koşullarda kazanç ikiye katlandı: son ölçüme göre v1 +2.9, **v2 +5.6 puan**
+(60 karşılaştırmanın 50'sinde önde, p < 0.0001). Ders: Daha karmaşık bir model yerine
+**doğru bilgiyi** (öznitelik) vermek çok daha etkili oldu. Model hâlâ lineer.
+
 **Wilcoxon testi:** Eşli t-testinin, farkların normal dağıldığını varsaymayan versiyonu.
 
 **Eşli t-testi (paired t-test):** Aynı seed'deki iki yöntemi karşılaştırır (seed başına fark).

@@ -51,6 +51,13 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 REPO = Path(__file__).resolve().parent.parent
 N_LAGS = 10  # kaç geçmiş pencere kullanılacak
 BAD_LINK = 0.5  # teslim oranı bunun altındaysa "kötü link" sayılır
+# NS-3'ün algılama eşiği (ThresholdPreambleDetectionModel::MinimumRssi). Sinyal "payı" buna göre.
+DETECT_DBM = -82.0
+# Hiç çerçeve duyulmayan pencerede pay bilinmez: eşiğin biraz altında varsayılır
+MARGIN_UNKNOWN = -3.0
+# v2: ters yön linkinden alınan öznitelikler (kanal iki yönde aynı sönümleniyor)
+REVERSE_COLS = ["pdr_l0", "pdr_l1", "pdr_l2", "pdr_mean5", "pdr_mean10", "pdr_trend",
+                "mar_l0", "mar_mean5", "mar_slope"]
 
 # Grafik renkleri (dataviz referans paletinden: kategorik sıra + metin/çizgi tonları)
 C_TRUE = "#0b0b0b"
@@ -59,8 +66,13 @@ C_MUTED = "#52514e"
 C_GRID = "#e1e0d9"
 
 
-def build_features(df: pd.DataFrame, horizon: int, offset: int = 0) -> pd.DataFrame:
-    """Her (çalıştırma, link) zaman serisinden gecikmeli öznitelikler ve hedef üretir."""
+def build_features(df: pd.DataFrame, horizon: int, offset: int = 0,
+                   version: int = 1) -> pd.DataFrame:
+    """Her (çalıştırma, link) zaman serisinden gecikmeli öznitelikler ve hedef üretir.
+
+    version 2 ek olarak: sinyal payı (RSSI - algılama eşiği) geçmişi/eğimi ve ters yön
+    linkinin öznitelikleri. C++ karşılığı: ns3/ai-controller.cc (Features).
+    """
     df = df.sort_values(["routing", "seed", "tx", "rx", "time"]).copy()
     # SNR yalnızca çerçeve duyulduysa bilinir; bilinmiyorsa 0 yaz ve bayrak koy
     df["snr_known"] = df["snr_db"].notna().astype(float)
@@ -78,6 +90,30 @@ def build_features(df: pd.DataFrame, horizon: int, offset: int = 0) -> pd.DataFr
     # SNR eğilimi yalnızca iki ölçüm de varsa anlamlı
     both = (df["snrk_l0"] > 0) & (df["snrk_l2"] > 0)
     df["snr_trend"] = np.where(both, df["snr_l0"] - df["snr_l2"], 0.0)
+
+    if version >= 2:
+        # Sinyal payı: alınan gücün algılama eşiğinin kaç dB üstünde olduğu.
+        # Pay 0'a yaklaştıkça link kopmaya yaklaşır.
+        df["margin"] = (df["rssi_dbm"] - DETECT_DBM).fillna(MARGIN_UNKNOWN)
+        g = df.groupby(["routing", "seed", "tx", "rx"], sort=False)
+        for k in range(5):
+            df[f"mar_l{k}"] = g["margin"].shift(k)
+        mar = [f"mar_l{k}" for k in range(5)]
+        df["mar_mean5"] = df[mar].mean(axis=1)
+        df["mar_max5"] = df[mar].max(axis=1)
+        # Son 5 noktaya oturtulan doğrunun eğimi (dB/s), en küçük kareler:
+        # eğim = Σ (x - 2) * y / 10, x = 4 (en eski) ... 0 (en yeni) yerine zaman ekseni
+        df["mar_slope"] = (2 * df["mar_l0"] + df["mar_l1"] - df["mar_l3"] - 2 * df["mar_l4"]) / 10
+        # Ters yön linki (rx -> tx) aynı andaki öznitelikleri; ölçümü yoksa "kopuk" kabul edilir
+        rev = df[["routing", "seed", "tx", "rx", "time"] + REVERSE_COLS].rename(
+            columns={"tx": "rx", "rx": "tx", **{c: "rev_" + c for c in REVERSE_COLS}})
+        df = df.merge(rev, on=["routing", "seed", "tx", "rx", "time"], how="left")
+        # Ters link hiç duyulmadıysa: teslim 0, pay sabit MARGIN_UNKNOWN, dolayısıyla eğim 0
+        # (C++ tarafı da hiç duyulmayan linki böyle görür)
+        for c in REVERSE_COLS:
+            fill = MARGIN_UNKNOWN if c in ("mar_l0", "mar_mean5") else 0.0
+            df["rev_" + c] = df["rev_" + c].fillna(fill)
+        g = df.groupby(["routing", "seed", "tx", "rx"], sort=False)
     # Hedef: offset kadar pencere atlandıktan sonraki H pencerenin ortalaması.
     # offset = kontrol gecikmesi: rotalar ancak offset saniye sonra uygulanacağı için
     # asıl önemli olan o andan sonraki link kalitesi.
@@ -86,10 +122,14 @@ def build_features(df: pd.DataFrame, horizon: int, offset: int = 0) -> pd.DataFr
     return df.dropna(subset=[f"pdr_l{N_LAGS - 1}", "target"])
 
 
-def feature_columns() -> list:
+def feature_columns(version: int = 1) -> list:
     cols = [f"pdr_l{k}" for k in range(N_LAGS)]
     cols += [f"snr_l{k}" for k in range(3)] + [f"snrk_l{k}" for k in range(3)]
-    return cols + ["pdr_mean5", "pdr_mean10", "pdr_trend", "snr_trend"]
+    cols += ["pdr_mean5", "pdr_mean10", "pdr_trend", "snr_trend"]
+    if version >= 2:
+        cols += [f"mar_l{k}" for k in range(5)] + ["mar_mean5", "mar_max5", "mar_slope"]
+        cols += ["rev_" + c for c in REVERSE_COLS]
+    return cols
 
 
 def scores(y_true, y_pred) -> dict:
@@ -126,20 +166,28 @@ def main():
                     help="kontrol gecikmesi (s): hedef bu kadar ileriden başlar")
     ap.add_argument("--horizon", type=int, default=3,
                     help="önümüzdeki kaç saniyenin ortalaması tahmin edilsin")
+    ap.add_argument("--features", type=int, default=1, choices=[1, 2],
+                    help="öznitelik sürümü: 1 = ilk model, 2 = + sinyal payı + ters yön linki")
     args = ap.parse_args()
 
     raw = pd.read_csv(args.csv)
-    # Sadece "anlamlı" linkler: o çalıştırmada ortalama teslim oranı %5'ten büyük olanlar.
+    # Öznitelikler TÜM linklerde hesaplanır (ters yön linki filtrelenmiş olsa da gerekir),
+    # sonra sadece "anlamlı" linkler tutulur: o çalıştırmada ortalama teslim oranı > %5.
     # Hep kopuk uzak düğüm çiftleri tahmini kolaylaştırıp sonuçları şişirirdi.
     mean_pdr = raw.groupby(["routing", "seed", "tx", "rx"])["pdr"].transform("mean")
-    raw = raw[mean_pdr > 0.05]
-
-    data = build_features(raw, args.horizon, args.offset)
-    # Dosya adı eki: gecikmesiz model eski adını korur (linear_h3), diğerleri linear_o2_h3 gibi
+    raw["link_mean_pdr"] = mean_pdr
+    data = build_features(raw, args.horizon, args.offset, args.features)
+    data = data[data["link_mean_pdr"] > 0.05]
+    # Dosya adları: gecikmesiz model eski adını korur (linear_h3), diğerleri linear_o2_h3;
+    # öznitelik sürümü 2 için linear2_... (sonuç/grafik dosyalarında v2_...)
+    name = "linear" if args.features == 1 else "linear2"
     tag = f"h{args.horizon}" if args.offset == 0 else f"o{args.offset}_h{args.horizon}"
+    model_file = f"{name}_{tag}"
+    if args.features == 2:
+        tag = "v2_" + tag
     train = data[data["seed"] <= 7]
     test = data[data["seed"] > 7]
-    X_cols = feature_columns()
+    X_cols = feature_columns(args.features)
     print(f"Egitim: {len(train)} ornek, test: {len(test)} ornek, "
           f"{data.groupby(['tx', 'rx']).ngroups} yonlu link, ufuk = {args.horizon} s, gecikme = {args.offset} s")
 
@@ -171,19 +219,19 @@ def main():
 
     # Lineer modelin katsayıları: C++ AI kontrolcüsü (ns3/ai-controller.cc) bunları kullanır
     (REPO / "ml/models").mkdir(exist_ok=True)
-    with open(REPO / f"ml/models/linear_{tag}.json", "w") as f:
+    with open(REPO / f"ml/models/{model_file}.json", "w") as f:
         json.dump({"features": X_cols, "coef": lr.coef_.tolist(),
                    "intercept": float(lr.intercept_), "horizon_s": args.horizon,
                    "offset_s": args.offset}, f, indent=2)
     # Aynı katsayılar C++'ın kolay okuyacağı düz metin olarak: "ad katsayı" satırları
-    with open(REPO / f"ml/models/linear_{tag}.txt", "w") as f:
+    with open(REPO / f"ml/models/{model_file}.txt", "w") as f:
         f.write(f"intercept {lr.intercept_:.10g}\n")
         for name, c in zip(X_cols, lr.coef_):
             f.write(f"{name} {c:.10g}\n")
     # C++ ile birebir aynı sonucu verdiğimizi kontrol etmek için birkaç test örneği
     check = test[X_cols].head(5).copy()
     check["pred"] = lr.predict(check[X_cols])
-    check.to_csv(REPO / f"ml/models/linear_{tag}_check.csv", index=False,
+    check.to_csv(REPO / f"ml/models/{model_file}_check.csv", index=False,
                  float_format="%.10g")
 
     # --- Grafik 1: model hataları (MAE) ---
@@ -251,7 +299,7 @@ def main():
 
     print(f"\nTablo   : results/model_karsilastirma_{tag}.csv")
     print(f"Grafikler: results/figures/*_{tag}.png")
-    print(f"Lineer model katsayilari: ml/models/linear_{tag}.json")
+    print(f"Lineer model katsayilari: ml/models/{model_file}.txt")
 
 
 if __name__ == "__main__":

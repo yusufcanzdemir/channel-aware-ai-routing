@@ -1,0 +1,10 @@
+model,scenario,n,fark,fark_ci95,model_daha_iyi,p_ttest,p_wilcoxon
+linear,hepsi,60,2.9296,2.2574,47,0.0119,0.0007
+linear,degrade,30,3.1057,3.7497,24,0.1010,0.0364
+linear,fading,30,2.7535,2.7554,23,0.0501,0.0062
+linear2,hepsi,60,5.5937,2.3504,50,0.0000,0.0000
+linear2,degrade,30,4.5170,4.0538,21,0.0302,0.0164
+linear2,fading,30,6.6704,2.5914,29,0.0000,0.0000
+linear2-h1,hepsi,60,5.9912,2.0107,54,0.0000,0.0000
+linear2-h1,degrade,30,5.4503,3.1406,25,0.0013,0.0006
+linear2-h1,fading,30,6.5321,2.6903,29,0.0000,0.0000
