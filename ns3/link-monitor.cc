@@ -127,9 +127,16 @@ LinkMonitor::OnSniffRx(uint32_t rx,
 }
 
 void
+LinkMonitor::SetWindowCallback(WindowCallback cb)
+{
+    m_windowCb = cb;
+}
+
+void
 LinkMonitor::EndWindow()
 {
     double now = Simulator::Now().GetSeconds();
+    size_t first = m_records.size(); // bu pencerenin kayıtları buradan başlar
     for (uint32_t tx = 0; tx < m_n; ++tx)
     {
         for (uint32_t rx = 0; rx < m_n; ++rx)
@@ -149,6 +156,13 @@ LinkMonitor::EndWindow()
                                        m_nFrames[idx]});
         }
     }
+    // Dinleyen varsa (AI kontrolcü) bu pencerenin ölçümlerini ilet
+    if (m_windowCb)
+    {
+        std::vector<Record> window(m_records.begin() + first, m_records.end());
+        m_windowCb(window);
+    }
+
     // Sayaçları yeni pencere için sıfırla
     std::fill(m_sent.begin(), m_sent.end(), 0);
     std::fill(m_recv.begin(), m_recv.end(), 0);

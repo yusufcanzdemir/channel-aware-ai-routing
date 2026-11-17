@@ -161,11 +161,21 @@ def main():
     fig_dir.mkdir(parents=True, exist_ok=True)
     table.to_csv(out_dir / f"model_karsilastirma_h{args.horizon}.csv", float_format="%.4f")
 
-    # Lineer modelin katsayıları: ileride C++ kontrolcüsüne bu sayılar kopyalanacak
+    # Lineer modelin katsayıları: C++ AI kontrolcüsü (ns3/ai-controller.cc) bunları kullanır
     (REPO / "ml/models").mkdir(exist_ok=True)
     with open(REPO / f"ml/models/linear_h{args.horizon}.json", "w") as f:
         json.dump({"features": X_cols, "coef": lr.coef_.tolist(),
                    "intercept": float(lr.intercept_), "horizon_s": args.horizon}, f, indent=2)
+    # Aynı katsayılar C++'ın kolay okuyacağı düz metin olarak: "ad katsayı" satırları
+    with open(REPO / f"ml/models/linear_h{args.horizon}.txt", "w") as f:
+        f.write(f"intercept {lr.intercept_:.10g}\n")
+        for name, c in zip(X_cols, lr.coef_):
+            f.write(f"{name} {c:.10g}\n")
+    # C++ ile birebir aynı sonucu verdiğimizi kontrol etmek için birkaç test örneği
+    check = test[X_cols].head(5).copy()
+    check["pred"] = lr.predict(check[X_cols])
+    check.to_csv(REPO / f"ml/models/linear_h{args.horizon}_check.csv", index=False,
+                 float_format="%.10g")
 
     # --- Grafik 1: model hataları (MAE) ---
     fig, ax = plt.subplots(figsize=(6.4, 3.2), dpi=150)

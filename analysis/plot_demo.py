@@ -4,8 +4,10 @@
    (bozulmasız / fading / degrade). Hata çubukları %95 güven aralığı.
 2) topoloji_anlik.png        : degrade senaryosunda 3 farklı anda ağın link kalitesi
 3) topoloji.gif              : aynı şeyin saniye saniye animasyonu
+4) yontem_karsilastirma.png  : AODV, OLSR ve AI kontrolcü (3 tahminci), seed 101-110
 
-Girdi: run_scenario.sh'nin ürettiği results/<senaryo>_ozet.csv ve data/link_degrade.csv
+Girdi: run_scenario.sh'nin ürettiği results/<senaryo>_ozet.csv ve data/link_degrade.csv,
+       run_comparison.sh'nin ürettiği results/cmp_<senaryo>_ozet.csv
 
 Kullanım:
     python analysis/plot_demo.py
@@ -36,6 +38,15 @@ C_GRID = "#e1e0d9"
 C_AXIS = "#c3c2b7"
 # Link kalitesi için ıraksak (diverging) renk skalası: kırmızı = kötü, gri = orta, mavi = iyi
 LINK_CMAP = LinearSegmentedColormap.from_list("link", ["#e34948", "#c3c2b7", "#2a78d6"])
+
+# Yöntemler ve sabit renkleri (kategorik palet, sabit sıra; renk yönteme bağlı, sıraya değil)
+METHODS = [
+    ("aodv", "AODV", "#2a78d6"),
+    ("olsr", "OLSR", "#eb6834"),
+    ("ai-last", "AI (son ölçüm)", "#1baf7a"),
+    ("ai-ma", "AI (hareketli ort.)", "#eda100"),
+    ("ai-linear", "AI (tahmin modeli)", "#e87ba4"),
+]
 
 SCENARIOS = [("none", "Bozulmasız"), ("fading", "Fading"), ("degrade", "Kademeli bozulma")]
 GRID_W = 4
@@ -91,6 +102,51 @@ def plot_scenarios():
     fig.savefig(FIG / "senaryo_karsilastirma.png")
     plt.close(fig)
     print("Grafik: results/figures/senaryo_karsilastirma.png")
+
+
+def plot_methods():
+    """Beş yöntemin üç senaryodaki PDR'ı ve gecikmesi (modelin görmediği seed'ler)."""
+    rows = []
+    for key, name in SCENARIOS:
+        f = REPO / f"results/cmp_{key}_ozet.csv"
+        if f.exists():
+            d = pd.read_csv(f)
+            d["name"] = name
+            rows.append(d)
+    if not rows:
+        print("UYARI: results/cmp_*_ozet.csv yok, once ./scripts/run_comparison.sh calistir")
+        return
+    df = pd.concat(rows)
+    names = [n for _, n in SCENARIOS if n in set(df["name"])]
+    methods = [m for m in METHODS if m[0] in set(df["routing"])]
+
+    fig, axes = plt.subplots(2, 1, figsize=(10, 7), dpi=150)
+    metrics = [("pdr", "Paket teslim oranı (%) - yüksek daha iyi"),
+               ("delay_ms", "Ortalama gecikme (ms) - düşük daha iyi")]
+    x = np.arange(len(names))
+    w = 0.8 / len(methods)
+    for ax, (m, title) in zip(axes, metrics):
+        for i, (key, label, color) in enumerate(methods):
+            sub = df[df["routing"] == key].set_index("name").reindex(names)
+            pos = x - 0.4 + w * (i + 0.5)
+            ax.bar(pos, sub[f"{m}_mean"], w * 0.92, yerr=sub[f"{m}_ci95"], color=color,
+                   label=label, error_kw=dict(ecolor=C_MUTED, lw=1, capsize=2))
+            # Değer etiketi hata çubuğunun üstünde, metin renginde
+            for xp, v, ci in zip(pos, sub[f"{m}_mean"], sub[f"{m}_ci95"]):
+                ax.text(xp, v + ci + (1.5 if m == "pdr" else 3), f"{v:.0f}", ha="center",
+                        fontsize=7.5, color=C_TEXT)
+        ax.set_xticks(x, names)
+        ax.set_title(title, loc="left", fontsize=10, color=C_TEXT)
+        style(ax)
+    axes[0].set_ylim(0, 112)
+    axes[0].legend(frameon=False, loc="upper left", bbox_to_anchor=(0, 1.22), ncol=5,
+                   fontsize=8.5)
+    fig.suptitle("Yöntem karşılaştırması (16 düğüm, modelin görmediği 10 seed, %95 GA)",
+                 x=0.01, ha="left", fontsize=12, color=C_TEXT)
+    fig.tight_layout()
+    fig.savefig(FIG / "yontem_karsilastirma.png")
+    plt.close(fig)
+    print("Grafik: results/figures/yontem_karsilastirma.png")
 
 
 def node_xy(i):
@@ -175,6 +231,7 @@ def main():
     args = ap.parse_args()
     FIG.mkdir(parents=True, exist_ok=True)
     plot_scenarios()
+    plot_methods()
     plot_topology(args.seed, args.routing)
 
 

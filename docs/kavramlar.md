@@ -34,7 +34,7 @@ ve ölçülebilir olsun diye.
 | 1 | Simülasyon altyapısı + AODV/OLSR referans ölçümü | ✓ bitti |
 | 2 | Bozulma senaryoları + link başına ölçüm CSV'si (modelin eğitim verisi) | ✓ ilk sürüm (fading, degrade) |
 | 3 | Python'da tahmin modeli eğitimi (`ml/`) | ✓ ilk model; iyileştirilecek |
-| 4 | NS-3 içinde AI kontrolcü (`--routing=ai`) | sıradaki |
+| 4 | NS-3 içinde AI kontrolcü (`--routing=ai`) | ✓ ilk sürüm (ideal kontrol kanalı) |
 | 5 | Üç yöntemin senaryolarla karşılaştırılması | |
 | 6 | Modelin gerçek cihazda çalışabilirliği + rapor | |
 
@@ -254,6 +254,8 @@ o kanal hafızasız olduğu için geçmiş, şimdiki değerden fazlasını söyl
 | Dosya | Ne yapar |
 | --- | --- |
 | [scripts/run_baseline.sh](../scripts/run_baseline.sh) | AODV ve OLSR'yi 10'ar seed ile çalıştırır, `data/baseline.csv`'ye yazar, özeti çıkarır (yoklamasız, ilk referans) |
+| [ns3/ai-controller.cc](../ns3/ai-controller.cc) | AI kontrolcü: tahmin → maliyet → Dijkstra → statik rotalar |
+| [scripts/run_comparison.sh](../scripts/run_comparison.sh) | 5 yöntemi (AODV, OLSR, AI × 3 tahminci) modelin görmediği seed 101-110'da karşılaştırır |
 | [scripts/run_scenario.sh](../scripts/run_scenario.sh) | Bir senaryoda AODV/OLSR × 10 seed, yoklamalar açık; sonuç + link verisi + özet |
 | [ml/train_link_model.py](../ml/train_link_model.py) | Link kalitesi tahmin modellerini eğitir, karşılaştırır, grafik çizer |
 | [analysis/plot_demo.py](../analysis/plot_demo.py) | Senaryo karşılaştırma grafiği + topoloji animasyonu |
@@ -289,8 +291,34 @@ Yoklamalar açık, 10 seed:
 | Fading | %56 | %61 |
 | Kademeli bozulma | %53 | %58 |
 
-Kanal bozulunca klasik protokoller paketlerin yarıya yakınını kaybediyor. AI kontrolcünün
-hedefi bu farkı kapatmak.
+Kanal bozulunca klasik protokoller paketlerin yarıya yakınını kaybediyor.
+
+### AI kontrolcü (`--routing=ai --aiPredictor=linear|last|ma`)
+
+Her saniye: ölçümler → her link için tahmin → **maliyet = 1 / (p_gidiş × p_dönüş)** →
+**Dijkstra** → her düğümün **statik rota tablosuna** "şu hedefe şu komşu üzerinden git" yazılır.
+Maliyet, bir paketin linki geçmesi için beklenen deneme sayısıdır (ETX). Gidiş ve dönüş birlikte
+çarpılır çünkü Wi-Fi her unicast paketi alındı onayıyla (ACK) doğrular. Tahmini teslim oranı
+0.3'ün altındaki link hiç kullanılmaz.
+
+Üç tahminci var. Böylece kazancın modelden mi yoksa merkezi yönlendirmeden mi geldiği ayrılır:
+`last` = son ölçüm, `ma` = son 5 s ortalaması, `linear` = eğitilmiş model.
+
+**Sonuç (PDR %, modelin görmediği seed 101-110):**
+
+| Senaryo | AODV | OLSR | AI-son | AI-ort | AI-model |
+| --- | --- | --- | --- | --- | --- |
+| Bozulmasız | 99.3 | 93.0 | 99.9 | 99.8 | 99.8 |
+| Fading | 65.1 | 65.0 | 95.6 | 94.0 | 93.7 |
+| Kademeli bozulma | 51.7 | 54.2 | 87.9 | 80.9 | 89.1 |
+
+Yorum: Asıl fark **merkezi, link kalitesine bakan yönlendirmeden** geliyor. Tahmin modelinin
+"son ölçüm"e üstünlüğü henüz istatistiksel olarak anlamlı değil. Önemli kısıt: kontrol kanalı
+ideal (ölçüm ve rotalar anında ulaşıyor). Gerçekte bu gecikme olunca son ölçüm bayatlar;
+tahminin değeri orada ortaya çıkabilir. Sıradaki deney bu.
+
+**Eşli t-testi (paired t-test):** Aynı seed'deki iki yöntemi karşılaştırır (seed başına fark).
+p < 0.05 ise fark büyük olasılıkla tesadüf değildir.
 
 OLSR'nin geride kalması için hipotez: HELLO/TC mesajları yayın (broadcast) olduğu için
 alındı onayı (ACK) yok; çarpışınca kaybolur, düğüm komşusunu "kaybettiğini" sanar,

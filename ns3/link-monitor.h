@@ -21,6 +21,7 @@
 #include "ns3/random-variable-stream.h"
 #include "ns3/wifi-phy.h"
 
+#include <functional>
 #include <map>
 #include <string>
 #include <vector>
@@ -52,6 +53,11 @@ class LinkMonitor
 
     // Yoklamaları ve ölçümü [start, stop) aralığında çalıştırır
     void Start(Time start, Time stop);
+
+    // Her ölçüm penceresi bittiğinde o pencerenin kayıtlarıyla çağrılacak fonksiyon.
+    // AI kontrolcü ölçümleri canlı olarak buradan alır.
+    using WindowCallback = std::function<void(const std::vector<Record>&)>;
+    void SetWindowCallback(WindowCallback cb);
 
     // Tüm kayıtları CSV'ye ekler (dosya yoksa başlık satırı yazar)
     void WriteCsv(const std::string& path,
@@ -101,6 +107,7 @@ class LinkMonitor
     std::vector<uint32_t> m_nFrames;
 
     std::vector<Record> m_records;
+    WindowCallback m_windowCb;
 };
 
 } // namespace ns3

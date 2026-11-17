@@ -19,6 +19,7 @@
 #include "ns3/olsr-module.h"
 #include "ns3/wifi-module.h"
 
+#include "ai-controller.h"
 #include "link-monitor.h"
 #include "slow-fading-loss-model.h"
 
@@ -41,11 +42,17 @@ static const uint16_t kAppPort = 9;
 // __FILE__ NS-3 içindeki scratch/ai_routing/ai_routing.cc'yi gösterir; scratch/ai_routing
 // bizim ns3/ klasörümüze symlink olduğu için "/../data" depo kökündeki data/ olur.
 static std::string
-DefaultCsvPath()
+RepoPath(const std::string& relative)
 {
     std::string file = __FILE__;
     std::string dir = file.substr(0, file.find_last_of('/'));
-    return dir + "/../data/sonuclar.csv";
+    return dir + "/../" + relative;
+}
+
+static std::string
+DefaultCsvPath()
+{
+    return RepoPath("data/sonuclar.csv");
 }
 
 int
@@ -87,6 +94,11 @@ main(int argc, char* argv[])
     std::string linkCsv = "";
     double probeInterval = 0.1; // yoklama aralığı (s): saniyede 10 yoklama
     double window = 1.0;        // ölçüm penceresi (s)
+    // AI kontrolcü ayarları (--routing=ai)
+    std::string aiPredictor = "linear"; // linear | last | ma
+    std::string aiModel = RepoPath("ml/models/linear_h3.txt");
+    double aiMinPdr = 0.3;              // tahmini teslim oranı bunun altındaki link kullanılmaz
+    std::string aiDebugCsv = "";        // doğrulama: öznitelik + tahmin dökümü
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("routing", "Yonlendirme yontemi: aodv | olsr | ai", routing);
@@ -111,15 +123,13 @@ main(int argc, char* argv[])
     cmd.AddValue("linkCsv", "Link olcum CSV dosyasi (bos = olcum kapali)", linkCsv);
     cmd.AddValue("probeInterval", "Yoklama paketi araligi (s)", probeInterval);
     cmd.AddValue("window", "Link olcum penceresi (s)", window);
+    cmd.AddValue("aiPredictor", "AI tahminci: linear | last | ma", aiPredictor);
+    cmd.AddValue("aiModel", "Lineer model katsayi dosyasi", aiModel);
+    cmd.AddValue("aiMinPdr", "AI: bu tahminin altindaki link kullanilmaz", aiMinPdr);
+    cmd.AddValue("aiDebugCsv", "AI: oznitelik/tahmin dokumu (dogrulama icin)", aiDebugCsv);
     cmd.Parse(argc, argv);
 
-    if (routing == "ai")
-    {
-        // Merkezi AI kontrolcü 8-9. haftalarda eklenecek.
-        std::cerr << "HATA: --routing=ai henuz uygulanmadi (hafta 8-9)." << std::endl;
-        return 1;
-    }
-    if (routing != "aodv" && routing != "olsr")
+    if (routing != "aodv" && routing != "olsr" && routing != "ai")
     {
         std::cerr << "HATA: bilinmeyen yonlendirme yontemi: " << routing << std::endl;
         return 1;
@@ -129,6 +139,9 @@ main(int argc, char* argv[])
         std::cerr << "HATA: bilinmeyen senaryo: " << scenario << std::endl;
         return 1;
     }
+
+    // Sonuç dosyalarında görünecek yöntem adı: AI'da tahminci de belirtilir (ai-linear gibi)
+    std::string method = routing == "ai" ? "ai-" + aiPredictor : routing;
 
     // Aynı seed ile her zaman aynı sonucu almak için
     RngSeedManager::SetRun(seed);
@@ -199,14 +212,20 @@ main(int argc, char* argv[])
     // ---------------------------------------------------------------------
     AodvHelper aodv;
     OlsrHelper olsr;
+    Ipv4StaticRoutingHelper staticRouting;
     Ipv4ListRoutingHelper list;
     if (routing == "aodv")
     {
         list.Add(aodv, 100);
     }
-    else
+    else if (routing == "olsr")
     {
         list.Add(olsr, 100);
+    }
+    else
+    {
+        // AI: düğümlerde protokol çalışmaz; rotaları merkezi kontrolcü statik tabloya yazar
+        list.Add(staticRouting, 0);
     }
 
     InternetStackHelper internet;
@@ -281,9 +300,11 @@ main(int argc, char* argv[])
     // ---------------------------------------------------------------------
     // 6. Ölçüm ve çalıştırma
     // ---------------------------------------------------------------------
-    // Link ölçümü (isteğe bağlı): yoklamalar simülasyonun başından sonuna kadar
+    // Link ölçümü: CSV istendiyse veya AI kontrolcü kullanılıyorsa (ölçümlere muhtaç).
+    // Yoklamalar simülasyonun başından sonuna kadar.
     std::unique_ptr<LinkMonitor> linkMonitor;
-    if (!linkCsv.empty())
+    std::unique_ptr<AiController> ai;
+    if (!linkCsv.empty() || routing == "ai")
     {
         linkMonitor = std::make_unique<LinkMonitor>(nodes,
                                                     devices,
@@ -291,6 +312,18 @@ main(int argc, char* argv[])
                                                     Seconds(window),
                                                     32 /* yoklama boyutu, bayt */);
         linkMonitor->Start(Seconds(1.0), Seconds(simTime));
+    }
+    if (routing == "ai")
+    {
+        ai = std::make_unique<AiController>(nodes, devices, aiPredictor, aiModel, aiMinPdr);
+        if (!aiDebugCsv.empty())
+        {
+            ai->SetDebugCsv(aiDebugCsv);
+        }
+        // Her ölçüm penceresi bitince kontrolcü tahmin yapıp rotaları günceller
+        AiController* aiPtr = ai.get();
+        linkMonitor->SetWindowCallback(
+            [aiPtr](const std::vector<LinkMonitor::Record>& w) { aiPtr->OnWindow(w); });
     }
 
     FlowMonitorHelper flowmonHelper;
@@ -343,7 +376,7 @@ main(int argc, char* argv[])
     // Ortalama sekme sayısı ≈ 1 + paket başına ara düğümde iletilme sayısı
     double avgHops = rxPackets > 0 ? 1.0 + double(timesForwarded) / rxPackets : 0.0;
 
-    std::cout << "--- Sonuclar (" << routing << ", seed=" << seed << ") ---" << std::endl;
+    std::cout << "--- Sonuclar (" << method << ", seed=" << seed << ") ---" << std::endl;
     std::cout << "  Gonderilen paket : " << txPackets << std::endl;
     std::cout << "  Alinan paket     : " << rxPackets << std::endl;
     std::cout << "  PDR              : " << pdr << " %" << std::endl;
@@ -351,6 +384,10 @@ main(int argc, char* argv[])
     std::cout << "  Throughput       : " << throughputKbps << " kbps" << std::endl;
     std::cout << "  Jitter           : " << jitterMs << " ms" << std::endl;
     std::cout << "  Ort. sekme       : " << avgHops << std::endl;
+    if (ai)
+    {
+        std::cout << "  Rota degisimi    : " << ai->GetRouteChanges() << std::endl;
+    }
 
     // CSV'ye bir satır ekle; dosya yoksa önce başlık satırını yaz
     bool newFile = !std::ifstream(csvPath).good();
@@ -366,14 +403,14 @@ main(int argc, char* argv[])
             csv << "routing,scenario,seed,nodes,distance,flows,tx_packets,rx_packets,"
                    "pdr,delay_ms,throughput_kbps,jitter_ms,avg_hops\n";
         }
-        csv << routing << "," << scenario << "," << seed << "," << nNodes << "," << distance
+        csv << method << "," << scenario << "," << seed << "," << nNodes << "," << distance
             << "," << nFlows << "," << txPackets << "," << rxPackets << "," << pdr << ","
             << delayMs << "," << throughputKbps << "," << jitterMs << "," << avgHops << "\n";
     }
 
-    if (linkMonitor)
+    if (!linkCsv.empty())
     {
-        linkMonitor->WriteCsv(linkCsv, routing, scenario, seed);
+        linkMonitor->WriteCsv(linkCsv, method, scenario, seed);
         std::cout << "Link olcumleri: " << linkCsv << std::endl;
     }
 

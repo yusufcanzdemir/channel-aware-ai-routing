@@ -51,7 +51,23 @@
     "son değer" 0.211 (%12 iyileşme); kötüleşecek link yakalama F1 0.855 → 0.866
 - analysis/plot_demo.py: ön gösterim grafikleri + topoloji animasyonu (results/figures/)
 
+- AI kontrolcü (`--routing=ai`, ns3/ai-controller.*): ölçüm → tahmin → ETX benzeri maliyet →
+  Dijkstra → statik rotalar. C++ öznitelik/tahminleri Python ile birebir aynı (--aiDebugCsv)
+- scripts/run_comparison.sh: 5 yöntem × modelin görmediği seed 101-110. PDR (%):
+
+  | Senaryo | AODV | OLSR | AI-son | AI-ort | AI-model |
+  | --- | --- | --- | --- | --- | --- |
+  | Bozulmasız | 99.3 | 93.0 | 99.9 | 99.8 | 99.8 |
+  | Fading | 65.1 | 65.0 | 95.6 | 94.0 | 93.7 |
+  | Kademeli bozulma | 51.7 | 54.2 | 87.9 | 80.9 | 89.1 |
+
 **Takıldığım yerler / öğrendiklerim**
+- Asıl kazanç merkezi, link kalitesine bakan yönlendirmeden geliyor (AI-son bile AODV'yi
+  30+ puan geçiyor). Tahmin modelinin "son ölçüm"e katkısı istatistiksel olarak anlamlı değil
+  (degrade +1.2 puan, eşli t-testi p = 0.46; fading -1.9, p = 0.27). Model 5 s ortalamayı
+  degrade'de anlamlı geçiyor (+8.2, p = 0.03)
+- İdeal kontrol kanalı varsayımı AI'ya avantaj sağlıyor; gerçekte ölçüm/rota gecikmesi olunca
+  "son ölçüm" bayatlar, tahminin değeri orada artması beklenir → test edilecek
 - İlk denemede (sadece fading) model "son değer"i geçemedi: AR(1) kanal hafızasız, en iyi
   tahmin zaten şimdiki değere çok yakın. Geçmişin bilgi taşıdığı kademeli bozulma olayları eklendi
 - Tek 1 s pencere (10 yoklama) çok gürültülü; hedefi 3 s ortalaması yapmak modeli belirgin iyileştirdi
@@ -59,5 +75,6 @@
 - NetAnim için Qt (qtbase5-dev) kurulu değil; yerine Python ile topoloji animasyonu yapıldı
 
 **Gelecek hafta**
-- Modeli iyileştirme: daha sık yoklama, olay öncesi erken uyarı özellikleri, sınıflandırma (kötüleşecek mi?)
-- AI kontrolcü tasarımı: tahmin → link maliyeti → Dijkstra → Ipv4StaticRouting
+- Kontrol kanalına gecikme ekleyip (ör. 1-3 s) tahminin değerini yeniden ölç
+- Modeli iyileştirme: olay öncesi erken uyarı özellikleri, sınıflandırma (kötüleşecek mi?)
+- Diğer senaryolar: girişim (interference), düğüm arızası, tıkanıklık
