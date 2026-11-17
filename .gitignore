@@ -6,3 +6,6 @@ __pycache__/
 
 # Proje rehberi (PDF ve onu üreten betikler/şekiller); yerel kullanım için, depoya girmez
 docs/rapor/
+
+# Kişisel devam notları (sohbetler arası); depoya girmez
+notlar/
