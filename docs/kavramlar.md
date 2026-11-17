@@ -317,6 +317,20 @@ Yorum: Asıl fark **merkezi, link kalitesine bakan yönlendirmeden** geliyor. Ta
 ideal (ölçüm ve rotalar anında ulaşıyor). Gerçekte bu gecikme olunca son ölçüm bayatlar;
 tahminin değeri orada ortaya çıkabilir. Sıradaki deney bu.
 
+### Kontrol gecikmesi deneyi (`--aiDelay`, `--aiInterval`)
+
+Gerçek bir ağda ölçümlerin kontrolcüye gitmesi ve rotaların düğümlere dönmesi zaman alır.
+`--aiDelay=2` ile rotalar hesaplandıktan 2 s sonra uygulanır, yani karar 2 s bayat bilgiyle
+verilmiş olur. Her gecikme için "o kadar ileriyi" tahmin eden ayrı bir model eğitilir
+(`python ml/train_link_model.py --offset 2` → `ml/models/linear_o2_h3.txt`).
+
+**Sonuç:** Gecikme yokken model ile son ölçüm aynı. Gecikme varken model ortalama
+**+2.9 puan** daha iyi (60 karşılaştırmanın 47'sinde önde, p = 0.012). Yani tahmin, bilginin
+bayatladığı gerçekçi koşullarda değer katıyor. Kazanç mütevazı. Asıl büyük kazanç hâlâ merkezi
+yönlendirmenin kendisinden geliyor.
+
+**Wilcoxon testi:** Eşli t-testinin, farkların normal dağıldığını varsaymayan versiyonu.
+
 **Eşli t-testi (paired t-test):** Aynı seed'deki iki yöntemi karşılaştırır (seed başına fark).
 p < 0.05 ise fark büyük olasılıkla tesadüf değildir.
 

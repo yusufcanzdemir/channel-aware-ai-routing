@@ -30,6 +30,7 @@ bölmek modelin başarısını olduğundan iyi gösterirdi.
 Kullanım:
     python ml/train_link_model.py                        # data/link_degrade.csv
     python ml/train_link_model.py data/link_fading.csv --horizon 5
+    python ml/train_link_model.py --offset 2   # kontrol gecikmesi 2 s: t+3..t+5 tahmin edilir
 """
 
 import argparse
@@ -58,7 +59,7 @@ C_MUTED = "#52514e"
 C_GRID = "#e1e0d9"
 
 
-def build_features(df: pd.DataFrame, horizon: int) -> pd.DataFrame:
+def build_features(df: pd.DataFrame, horizon: int, offset: int = 0) -> pd.DataFrame:
     """Her (çalıştırma, link) zaman serisinden gecikmeli öznitelikler ve hedef üretir."""
     df = df.sort_values(["routing", "seed", "tx", "rx", "time"]).copy()
     # SNR yalnızca çerçeve duyulduysa bilinir; bilinmiyorsa 0 yaz ve bayrak koy
@@ -77,8 +78,11 @@ def build_features(df: pd.DataFrame, horizon: int) -> pd.DataFrame:
     # SNR eğilimi yalnızca iki ölçüm de varsa anlamlı
     both = (df["snrk_l0"] > 0) & (df["snrk_l2"] > 0)
     df["snr_trend"] = np.where(both, df["snr_l0"] - df["snr_l2"], 0.0)
-    # Hedef: sonraki H pencerenin ortalaması
-    df["target"] = sum(g["pdr"].shift(-k) for k in range(1, horizon + 1)) / horizon
+    # Hedef: offset kadar pencere atlandıktan sonraki H pencerenin ortalaması.
+    # offset = kontrol gecikmesi: rotalar ancak offset saniye sonra uygulanacağı için
+    # asıl önemli olan o andan sonraki link kalitesi.
+    ks = range(offset + 1, offset + horizon + 1)
+    df["target"] = sum(g["pdr"].shift(-k) for k in ks) / horizon
     return df.dropna(subset=[f"pdr_l{N_LAGS - 1}", "target"])
 
 
@@ -118,6 +122,8 @@ def style(ax):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("csv", nargs="?", default=str(REPO / "data/link_degrade.csv"))
+    ap.add_argument("--offset", type=int, default=0,
+                    help="kontrol gecikmesi (s): hedef bu kadar ileriden başlar")
     ap.add_argument("--horizon", type=int, default=3,
                     help="önümüzdeki kaç saniyenin ortalaması tahmin edilsin")
     args = ap.parse_args()
@@ -128,12 +134,14 @@ def main():
     mean_pdr = raw.groupby(["routing", "seed", "tx", "rx"])["pdr"].transform("mean")
     raw = raw[mean_pdr > 0.05]
 
-    data = build_features(raw, args.horizon)
+    data = build_features(raw, args.horizon, args.offset)
+    # Dosya adı eki: gecikmesiz model eski adını korur (linear_h3), diğerleri linear_o2_h3 gibi
+    tag = f"h{args.horizon}" if args.offset == 0 else f"o{args.offset}_h{args.horizon}"
     train = data[data["seed"] <= 7]
     test = data[data["seed"] > 7]
     X_cols = feature_columns()
     print(f"Egitim: {len(train)} ornek, test: {len(test)} ornek, "
-          f"{data.groupby(['tx', 'rx']).ngroups} yonlu link, ufuk = {args.horizon} s")
+          f"{data.groupby(['tx', 'rx']).ngroups} yonlu link, ufuk = {args.horizon} s, gecikme = {args.offset} s")
 
     preds = {
         "Son değer": test["pdr_l0"].to_numpy(),
@@ -159,22 +167,23 @@ def main():
     out_dir = REPO / "results"
     fig_dir = out_dir / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
-    table.to_csv(out_dir / f"model_karsilastirma_h{args.horizon}.csv", float_format="%.4f")
+    table.to_csv(out_dir / f"model_karsilastirma_{tag}.csv", float_format="%.4f")
 
     # Lineer modelin katsayıları: C++ AI kontrolcüsü (ns3/ai-controller.cc) bunları kullanır
     (REPO / "ml/models").mkdir(exist_ok=True)
-    with open(REPO / f"ml/models/linear_h{args.horizon}.json", "w") as f:
+    with open(REPO / f"ml/models/linear_{tag}.json", "w") as f:
         json.dump({"features": X_cols, "coef": lr.coef_.tolist(),
-                   "intercept": float(lr.intercept_), "horizon_s": args.horizon}, f, indent=2)
+                   "intercept": float(lr.intercept_), "horizon_s": args.horizon,
+                   "offset_s": args.offset}, f, indent=2)
     # Aynı katsayılar C++'ın kolay okuyacağı düz metin olarak: "ad katsayı" satırları
-    with open(REPO / f"ml/models/linear_h{args.horizon}.txt", "w") as f:
+    with open(REPO / f"ml/models/linear_{tag}.txt", "w") as f:
         f.write(f"intercept {lr.intercept_:.10g}\n")
         for name, c in zip(X_cols, lr.coef_):
             f.write(f"{name} {c:.10g}\n")
     # C++ ile birebir aynı sonucu verdiğimizi kontrol etmek için birkaç test örneği
     check = test[X_cols].head(5).copy()
     check["pred"] = lr.predict(check[X_cols])
-    check.to_csv(REPO / f"ml/models/linear_h{args.horizon}_check.csv", index=False,
+    check.to_csv(REPO / f"ml/models/linear_{tag}_check.csv", index=False,
                  float_format="%.10g")
 
     # --- Grafik 1: model hataları (MAE) ---
@@ -194,7 +203,7 @@ def main():
     style(ax)
     ax.grid(axis="y", visible=False)
     fig.tight_layout()
-    fig.savefig(fig_dir / f"model_hata_h{args.horizon}.png")
+    fig.savefig(fig_dir / f"model_hata_{tag}.png")
     plt.close(fig)
 
     # --- Grafik 2: örnek bir linkte gerçek vs tahmin ---
@@ -221,7 +230,7 @@ def main():
     ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(0, -0.2), ncol=3, fontsize=9)
     style(ax)
     fig.tight_layout()
-    fig.savefig(fig_dir / f"tahmin_ornek_h{args.horizon}.png")
+    fig.savefig(fig_dir / f"tahmin_ornek_{tag}.png")
     plt.close(fig)
 
     # --- Grafik 3: model hangi girdilere önem veriyor ---
@@ -237,12 +246,12 @@ def main():
     style(ax)
     ax.grid(axis="y", visible=False)
     fig.tight_layout()
-    fig.savefig(fig_dir / f"oznitelik_onem_h{args.horizon}.png")
+    fig.savefig(fig_dir / f"oznitelik_onem_{tag}.png")
     plt.close(fig)
 
-    print(f"\nTablo   : results/model_karsilastirma_h{args.horizon}.csv")
-    print(f"Grafikler: results/figures/*_h{args.horizon}.png")
-    print(f"Lineer model katsayilari: ml/models/linear_h{args.horizon}.json")
+    print(f"\nTablo   : results/model_karsilastirma_{tag}.csv")
+    print(f"Grafikler: results/figures/*_{tag}.png")
+    print(f"Lineer model katsayilari: ml/models/linear_{tag}.json")
 
 
 if __name__ == "__main__":

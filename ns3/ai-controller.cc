@@ -19,11 +19,16 @@ AiController::AiController(NodeContainer nodes,
                            NetDeviceContainer devices,
                            const std::string& predictor,
                            const std::string& modelPath,
-                           double minPdr)
+                           double minPdr,
+                           double delay,
+                           uint32_t interval)
     : m_n(nodes.GetN()),
       m_predictor(predictor),
-      m_minPdr(minPdr)
+      m_minPdr(minPdr),
+      m_delay(delay),
+      m_interval(interval)
 {
+    NS_ABORT_MSG_IF(interval == 0, "aiInterval en az 1 olmali");
     NS_ABORT_MSG_IF(predictor != "linear" && predictor != "last" && predictor != "ma",
                     "Bilinmeyen aiPredictor: " << predictor);
     if (predictor == "linear")
@@ -106,8 +111,23 @@ AiController::OnWindow(const std::vector<LinkMonitor::Record>& window)
             m_snrHist[idx].pop_back();
         }
     }
-    // 2-5) Tahmin, maliyet, Dijkstra, rota yazma
-    ComputeAndInstallRoutes();
+    // Rotalar sadece her m_interval pencerede bir yeniden hesaplanır
+    m_windowCount++;
+    if (m_windowCount % m_interval != 0)
+    {
+        return;
+    }
+    // 2-4) Tahmin, maliyet, Dijkstra
+    std::vector<int> routes = ComputeRoutes();
+    // 5) Rotaları yaz: hemen ya da kontrol gecikmesi kadar sonra
+    if (m_delay > 0.0)
+    {
+        Simulator::Schedule(Seconds(m_delay), &AiController::InstallRoutes, this, routes);
+    }
+    else
+    {
+        InstallRoutes(routes);
+    }
 }
 
 std::map<std::string, double>
@@ -189,8 +209,8 @@ AiController::Predict(uint32_t tx, uint32_t rx)
     return y;
 }
 
-void
-AiController::ComputeAndInstallRoutes()
+std::vector<int>
+AiController::ComputeRoutes()
 {
     const double inf = std::numeric_limits<double>::infinity();
 
@@ -261,7 +281,13 @@ AiController::ComputeAndInstallRoutes()
         }
     }
 
-    // 5) Değişen düğümlerin rota tablolarını yeniden yaz
+    return newNextHop;
+}
+
+void
+AiController::InstallRoutes(std::vector<int> newNextHop)
+{
+    // Değişen düğümlerin rota tablolarını yeniden yaz
     for (uint32_t src = 0; src < m_n; ++src)
     {
         bool changed = false;

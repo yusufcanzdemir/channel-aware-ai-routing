@@ -96,7 +96,9 @@ main(int argc, char* argv[])
     double window = 1.0;        // ölçüm penceresi (s)
     // AI kontrolcü ayarları (--routing=ai)
     std::string aiPredictor = "linear"; // linear | last | ma
-    std::string aiModel = RepoPath("ml/models/linear_h3.txt");
+    std::string aiModel = "";           // boş: gecikmeye uygun model otomatik seçilir
+    double aiDelay = 0.0;               // rotaların düğümlere ulaşma gecikmesi (s)
+    uint32_t aiInterval = 1;            // rotalar kaç saniyede bir güncellenir
     double aiMinPdr = 0.3;              // tahmini teslim oranı bunun altındaki link kullanılmaz
     std::string aiDebugCsv = "";        // doğrulama: öznitelik + tahmin dökümü
 
@@ -125,6 +127,8 @@ main(int argc, char* argv[])
     cmd.AddValue("window", "Link olcum penceresi (s)", window);
     cmd.AddValue("aiPredictor", "AI tahminci: linear | last | ma", aiPredictor);
     cmd.AddValue("aiModel", "Lineer model katsayi dosyasi", aiModel);
+    cmd.AddValue("aiDelay", "AI: rota uygulama gecikmesi (s), 0 = ideal", aiDelay);
+    cmd.AddValue("aiInterval", "AI: rota guncelleme araligi (pencere)", aiInterval);
     cmd.AddValue("aiMinPdr", "AI: bu tahminin altindaki link kullanilmaz", aiMinPdr);
     cmd.AddValue("aiDebugCsv", "AI: oznitelik/tahmin dokumu (dogrulama icin)", aiDebugCsv);
     cmd.Parse(argc, argv);
@@ -141,7 +145,28 @@ main(int argc, char* argv[])
     }
 
     // Sonuç dosyalarında görünecek yöntem adı: AI'da tahminci de belirtilir (ai-linear gibi)
-    std::string method = routing == "ai" ? "ai-" + aiPredictor : routing;
+    std::string method = routing;
+    if (routing == "ai")
+    {
+        method = "ai-" + aiPredictor;
+        // Gecikme / aralık varsayılan değilse yöntem adına eklenir (ai-linear-d2-i3 gibi)
+        if (aiDelay > 0)
+        {
+            method += "-d" + std::to_string(int(std::lround(aiDelay)));
+        }
+        if (aiInterval > 1)
+        {
+            method += "-i" + std::to_string(aiInterval);
+        }
+        // Model seçilmediyse gecikmeye göre eğitilmiş modeli kullan
+        // (gecikme D s ise model t+D+1..t+D+3 aralığını tahmin edecek şekilde eğitildi)
+        if (aiModel.empty())
+        {
+            long d = std::lround(aiDelay);
+            aiModel = RepoPath(d == 0 ? "ml/models/linear_h3.txt"
+                                      : "ml/models/linear_o" + std::to_string(d) + "_h3.txt");
+        }
+    }
 
     // Aynı seed ile her zaman aynı sonucu almak için
     RngSeedManager::SetRun(seed);
@@ -315,7 +340,13 @@ main(int argc, char* argv[])
     }
     if (routing == "ai")
     {
-        ai = std::make_unique<AiController>(nodes, devices, aiPredictor, aiModel, aiMinPdr);
+        ai = std::make_unique<AiController>(nodes,
+                                            devices,
+                                            aiPredictor,
+                                            aiModel,
+                                            aiMinPdr,
+                                            aiDelay,
+                                            aiInterval);
         if (!aiDebugCsv.empty())
         {
             ai->SetDebugCsv(aiDebugCsv);

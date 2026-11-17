@@ -11,8 +11,12 @@
 //   4) Her düğümden her düğüme Dijkstra ile en ucuz yolu bulur
 //   5) Her düğümün Ipv4StaticRouting tablosuna "hedef -> sonraki sekme" host rotalarını yazar
 //
-// Basitleştirme (docs/kararlar.md): kontrol kanalı ideal kabul edilir; ölçümler
-// kontrolcüye ve rotalar düğümlere gecikmesiz ve kayıpsız ulaşır.
+// Kontrol döngüsü ayarları:
+//   delay   : hesaplanan rotaların düğümlere uygulanma gecikmesi (s). Ölçümün kontrolcüye
+//             gitmesi + hesap + rotanın geri gelmesi toplamını temsil eder. 0 = ideal kanal.
+//   interval: rotaların kaç pencerede (saniyede) bir yeniden hesaplanacağı. Ölçümler her
+//             pencerede geçmişe eklenmeye devam eder.
+// Kontrol mesajlarının kendisi simüle edilmez (kayıpsız, ağa yük getirmez).
 
 #ifndef AI_CONTROLLER_H
 #define AI_CONTROLLER_H
@@ -40,7 +44,9 @@ class AiController
                  NetDeviceContainer devices,
                  const std::string& predictor,
                  const std::string& modelPath,
-                 double minPdr);
+                 double minPdr,
+                 double delay = 0.0,
+                 uint32_t interval = 1);
 
     // LinkMonitor her pencere sonunda bunu çağırır
     void OnWindow(const std::vector<LinkMonitor::Record>& window);
@@ -59,11 +65,17 @@ class AiController
     double Predict(uint32_t tx, uint32_t rx);
     // Lineer modelin girdileri (Python'daki build_features ile birebir aynı)
     std::map<std::string, double> Features(uint32_t idx) const;
-    void ComputeAndInstallRoutes();
+    // Tahmin + maliyet + Dijkstra: [src * n + dst] -> sonraki sekme (-1: rota yok)
+    std::vector<int> ComputeRoutes();
+    // Rota tablosunu düğümlere yazar (gecikmeli olarak da çağrılabilir)
+    void InstallRoutes(std::vector<int> newNextHop);
 
     uint32_t m_n;
     std::string m_predictor;
     double m_minPdr;
+    double m_delay;
+    uint32_t m_interval;
+    uint32_t m_windowCount = 0;
     std::vector<Ipv4Address> m_addr;                // düğüm -> IP adresi
     std::vector<Ptr<Ipv4StaticRouting>> m_routing; // düğüm -> statik rota tablosu
     std::vector<uint32_t> m_ifIndex;               // düğüm -> Wi-Fi arayüz numarası

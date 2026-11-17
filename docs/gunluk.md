@@ -61,6 +61,20 @@
   | Fading | 65.1 | 65.0 | 95.6 | 94.0 | 93.7 |
   | Kademeli bozulma | 51.7 | 54.2 | 87.9 | 80.9 | 89.1 |
 
+- Kontrol gecikmesi deneyi (scripts/run_delay.sh, analysis/plot_delay.py): rotalar 0-3 s geç
+  uygulanınca PDR (%), son ölçüm → tahmin modeli:
+
+  | Gecikme | Degrade | Fading |
+  | --- | --- | --- |
+  | 0 s | 87.9 → 89.1 | 95.6 → 93.7 |
+  | 1 s | 76.5 → 81.9 | 89.3 → 90.4 |
+  | 2 s | 71.8 → 74.8 | 84.2 → 86.9 |
+  | 3 s | 69.1 → 70.0 | 80.5 → 85.0 |
+
+  Gecikmeli koşulların hepsi birlikte (60 eş): model ortalama +2.9 puan, 60'ın 47'sinde daha iyi,
+  eşli t-testi p = 0.012, Wilcoxon p = 0.0007. Tek tek gecikmelerde 10 seed anlamlılık için yetmiyor.
+  Gecikme 3 s'de bile AI, AODV/OLSR'nin 15-20 puan üstünde
+
 **Takıldığım yerler / öğrendiklerim**
 - Asıl kazanç merkezi, link kalitesine bakan yönlendirmeden geliyor (AI-son bile AODV'yi
   30+ puan geçiyor). Tahmin modelinin "son ölçüm"e katkısı istatistiksel olarak anlamlı değil
@@ -75,6 +89,7 @@
 - NetAnim için Qt (qtbase5-dev) kurulu değil; yerine Python ile topoloji animasyonu yapıldı
 
 **Gelecek hafta**
-- Kontrol kanalına gecikme ekleyip (ör. 1-3 s) tahminin değerini yeniden ölç
+- Gecikme deneyini 30 seed ile tekrarla (gecikme başına anlamlılık için)
+- Güncelleme aralığı (--aiInterval) deneyi
 - Modeli iyileştirme: olay öncesi erken uyarı özellikleri, sınıflandırma (kötüleşecek mi?)
 - Diğer senaryolar: girişim (interference), düğüm arızası, tıkanıklık
