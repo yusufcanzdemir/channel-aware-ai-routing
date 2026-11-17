@@ -20,6 +20,11 @@
 // akışından (stream) ve sabit zaman adımlarıyla üretilir. Böylece hangi yönlendirme
 // protokolü kullanılırsa kullanılsın, aynı seed'de kanal aynı şekilde değişir.
 // Sinyal iki yönde aynı şekilde etkilenir (link simetrik).
+//
+// Kâhin (oracle) desteği: Her linkin yavaş bileşeni kendi akışından sırayla üretildiği için
+// gelecekteki adımları erken üretmek değerleri DEĞİŞTİRMEZ. Bu yüzden üretilen değerler bir
+// diziye (yörünge) kaydedilir; GetSlowLossDbAt() gelecekteki bir anın değerini verebilir.
+// Bu sadece "teorik üst sınır" deneyi içindir; gerçek bir sistem geleceği bilemez.
 
 #ifndef SLOW_FADING_LOSS_MODEL_H
 #define SLOW_FADING_LOSS_MODEL_H
@@ -30,6 +35,7 @@
 
 #include <map>
 #include <utility>
+#include <vector>
 
 namespace ns3
 {
@@ -42,6 +48,12 @@ class SlowFadingLossModel : public PropagationLossModel
 
     // Belirli bir linkin o anki yavaş kayıp değeri (dB). Kayıt/hata ayıklama için.
     double GetSlowLossDb(uint32_t nodeA, uint32_t nodeB) const;
+    // Belirli bir linkin t anındaki (gelecek de olabilir) yavaş kayıp değeri (dB)
+    double GetSlowLossDbAt(uint32_t nodeA, uint32_t nodeB, Time t) const;
+    // Paket başına hızlı bileşenin standart sapması (dB)
+    double GetFastSigma() const;
+    // Yavaş bileşenin zaman adımı
+    Time GetStep() const;
 
   private:
     double DoCalcRxPower(double txPowerDbm,
@@ -58,10 +70,15 @@ class SlowFadingLossModel : public PropagationLossModel
         Ptr<UniformRandomVariable> evRng; // bozulma olayları için ayrı üreteç
         int64_t evStart;               // aktif olayın başladığı adım (-1: olay yok)
         double evDepth;                // aktif olayın derinliği (dB)
+        std::vector<double> traj;      // traj[k]: k. adımdaki toplam yavaş kayıp (dB)
     };
 
-    // Linkin durumunu şu anki zamana kadar ilerletir ve döndürür
-    LinkState& Advance(uint32_t nodeA, uint32_t nodeB) const;
+    // Linkin durumunu döndürür (ilk kez görülüyorsa oluşturur)
+    LinkState& GetLink(uint32_t nodeA, uint32_t nodeB) const;
+    // Linkin yörüngesini k. adıma kadar üretir
+    void ExtendTo(LinkState& s, int64_t k) const;
+    // Linkin k. adımdaki toplam yavaş kaybı (dB)
+    double LossAtStep(uint32_t nodeA, uint32_t nodeB, int64_t k) const;
     // Aktif bozulma olayının şu anki ek kaybı (dB)
     double EventLoss(const LinkState& s) const;
 

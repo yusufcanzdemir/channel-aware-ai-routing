@@ -30,7 +30,7 @@ AiController::AiController(NodeContainer nodes,
 {
     NS_ABORT_MSG_IF(interval == 0, "aiInterval en az 1 olmali");
     NS_ABORT_MSG_IF(predictor != "linear" && predictor != "linear2" && predictor != "last" &&
-                        predictor != "ma",
+                        predictor != "ma" && predictor != "oracle",
                     "Bilinmeyen aiPredictor: " << predictor);
     if (predictor == "linear" || predictor == "linear2")
     {
@@ -87,6 +87,42 @@ AiController::SetDebugCsv(const std::string& path)
         m_debug << "," << name;
     }
     m_debug << "\n";
+}
+
+void
+AiController::SetOracle(Ptr<SlowFadingLossModel> fading, std::vector<double> nominalRxDbm)
+{
+    m_fading = fading;
+    m_nominalRx = nominalRxDbm;
+}
+
+double
+AiController::OraclePdr(uint32_t tx, uint32_t rx) const
+{
+    // Rotalar [şimdi + gecikme, şimdi + gecikme + aralık) döneminde geçerli olacak
+    Time start = Simulator::Now() + Seconds(m_delay);
+    Time end = start + Seconds(double(m_interval));
+    double nominal = m_nominalRx[tx * m_n + rx];
+    if (!m_fading)
+    {
+        // Sönümleme yok: link ya hep var ya hep yok
+        return nominal >= kDetectDbm ? 1.0 : 0.0;
+    }
+    double sigma = m_fading->GetFastSigma();
+    Time step = m_fading->GetStep();
+    double sum = 0.0;
+    uint32_t count = 0;
+    for (Time t = start; t < end; t += step)
+    {
+        // Paket alınır <=> nominal - yavaş kayıp - hızlı kayıp >= eşik.
+        // Hızlı kayıp ~ N(0, sigma) olduğundan olasılık = Φ(pay / sigma)
+        double margin = nominal - m_fading->GetSlowLossDbAt(tx, rx, t) - kDetectDbm;
+        double p = sigma > 0 ? 0.5 * std::erfc(-margin / (sigma * std::sqrt(2.0)))
+                             : (margin >= 0 ? 1.0 : 0.0);
+        sum += p;
+        count++;
+    }
+    return count > 0 ? sum / count : 0.0;
 }
 
 uint64_t
@@ -207,6 +243,17 @@ AiController::OwnFeatures(uint32_t idx) const
 double
 AiController::Predict(uint32_t tx, uint32_t rx)
 {
+    if (m_predictor == "oracle")
+    {
+        NS_ABORT_MSG_IF(m_nominalRx.empty(), "oracle icin SetOracle cagrilmali");
+        double y = OraclePdr(tx, rx);
+        // Doğrulama: kâhin tahmini ile sonradan ölçülen teslim oranı karşılaştırılabilsin
+        if (m_debug.is_open() && y > 0.01)
+        {
+            m_debug << m_now << "," << tx << "," << rx << "," << y << "\n";
+        }
+        return y;
+    }
     uint32_t idx = tx * m_n + rx;
     const auto& p = m_pdrHist[idx];
     if (p.empty())

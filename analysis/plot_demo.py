@@ -4,7 +4,7 @@
    (bozulmasız / fading / degrade). Hata çubukları %95 güven aralığı.
 2) topoloji_anlik.png        : degrade senaryosunda 3 farklı anda ağın link kalitesi
 3) topoloji.gif              : aynı şeyin saniye saniye animasyonu
-4) yontem_karsilastirma.png  : AODV, OLSR ve AI kontrolcü (3 tahminci), seed 101-110
+4) yontem_karsilastirma.png  : AODV, OLSR ve AI kontrolcü (5 tahminci), seed 101-110
 
 Girdi: run_scenario.sh'nin ürettiği results/<senaryo>_ozet.csv ve data/link_degrade.csv,
        run_comparison.sh'nin ürettiği results/cmp_<senaryo>_ozet.csv
@@ -45,7 +45,9 @@ METHODS = [
     ("olsr", "OLSR", "#eb6834"),
     ("ai-last", "AI (son ölçüm)", "#1baf7a"),
     ("ai-ma", "AI (hareketli ort.)", "#eda100"),
-    ("ai-linear", "AI (tahmin modeli)", "#e87ba4"),
+    ("ai-linear", "AI (model v1)", "#e87ba4"),
+    ("ai-linear2", "AI (model v2)", "#008300"),
+    ("ai-oracle", "AI (kâhin)", "#6250d6"),
 ]
 
 SCENARIOS = [("none", "Bozulmasız"), ("fading", "Fading"), ("degrade", "Kademeli bozulma")]
@@ -120,7 +122,7 @@ def plot_methods():
     names = [n for _, n in SCENARIOS if n in set(df["name"])]
     methods = [m for m in METHODS if m[0] in set(df["routing"])]
 
-    fig, axes = plt.subplots(2, 1, figsize=(10, 7), dpi=150)
+    fig, axes = plt.subplots(2, 1, figsize=(11, 7.5), dpi=150)
     metrics = [("pdr", "Paket teslim oranı (%) - yüksek daha iyi"),
                ("delay_ms", "Ortalama gecikme (ms) - düşük daha iyi")]
     x = np.arange(len(names))
@@ -139,7 +141,7 @@ def plot_methods():
         ax.set_title(title, loc="left", fontsize=10, color=C_TEXT)
         style(ax)
     axes[0].set_ylim(0, 112)
-    axes[0].legend(frameon=False, loc="upper left", bbox_to_anchor=(0, 1.22), ncol=5,
+    axes[0].legend(frameon=False, loc="upper left", bbox_to_anchor=(0, 1.3), ncol=4,
                    fontsize=8.5)
     fig.suptitle("Yöntem karşılaştırması (16 düğüm, modelin görmediği 10 seed, %95 GA)",
                  x=0.01, ha="left", fontsize=12, color=C_TEXT)

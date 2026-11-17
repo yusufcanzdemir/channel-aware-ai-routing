@@ -34,7 +34,7 @@ ve ölçülebilir olsun diye.
 | 1 | Simülasyon altyapısı + AODV/OLSR referans ölçümü | ✓ bitti |
 | 2 | Bozulma senaryoları + link başına ölçüm CSV'si (modelin eğitim verisi) | ✓ ilk sürüm (fading, degrade) |
 | 3 | Python'da tahmin modeli eğitimi (`ml/`) | ✓ ilk model; iyileştirilecek |
-| 4 | NS-3 içinde AI kontrolcü (`--routing=ai`) | ✓ ilk sürüm (ideal kontrol kanalı) |
+| 4 | NS-3 içinde AI kontrolcü (`--routing=ai`) | ✓ (gecikme deneyi, model v2, kâhin tavanı) |
 | 5 | Üç yöntemin senaryolarla karşılaştırılması | |
 | 6 | Modelin gerçek cihazda çalışabilirliği + rapor | |
 
@@ -340,6 +340,20 @@ yönlendirmenin kendisinden geliyor.
 Gecikmeli koşullarda kazanç ikiye katlandı: son ölçüme göre v1 +2.9, **v2 +5.6 puan**
 (60 karşılaştırmanın 50'sinde önde, p < 0.0001). Ders: Daha karmaşık bir model yerine
 **doğru bilgiyi** (öznitelik) vermek çok daha etkili oldu. Model hâlâ lineer.
+
+### Kâhin (oracle) ve "tavan" deneyi (`--aiPredictor=oracle`)
+
+**Kâhin**, rotaların uygulanacağı dönemde linklerin gerçek durumunu bilen hayali bir
+tahmincidir. Kanal modelini biz yazdığımız için bunu hesaplayabiliyoruz. Gerçek bir sistemde
+imkânsızdır. Amacı şu soruyu cevaplamak: **"Tahmin mükemmel olsaydı en fazla ne kazanırdık?"**
+Bu değere **tavan (üst sınır)** denir. Kâhin çarpışmaları bilmez, sadece kanalı bilir.
+
+Sonuç:
+- **Gecikme yokken** kâhin, model v2'den anlamlı olarak iyi değil. Hatta kademeli bozulmada
+  biraz geride (çünkü ölçüme dayalı model çarpışma/tıkanıklık etkisini de görüyor).
+  → Bu koşulda daha iyi bir tahminci (RL dahil) kayda değer bir şey kazandıramaz.
+- **Gecikme varken** kâhin ile v2 arasında 5-17 puan fark var.
+  → Daha iyi tahminin değeri burada. Geliştirme yapılacaksa hedef bu koşul.
 
 **Wilcoxon testi:** Eşli t-testinin, farkların normal dağıldığını varsaymayan versiyonu.
 

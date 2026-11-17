@@ -76,11 +76,10 @@ SlowFadingLossModel::SlowFadingLossModel()
 }
 
 SlowFadingLossModel::LinkState&
-SlowFadingLossModel::Advance(uint32_t nodeA, uint32_t nodeB) const
+SlowFadingLossModel::GetLink(uint32_t nodeA, uint32_t nodeB) const
 {
     // Link yönsüz: (3,5) ile (5,3) aynı link
     auto key = std::make_pair(std::min(nodeA, nodeB), std::max(nodeA, nodeB));
-    int64_t now = Simulator::Now().GetNanoSeconds() / m_step.GetNanoSeconds();
 
     auto it = m_links.find(key);
     if (it == m_links.end())
@@ -98,17 +97,22 @@ SlowFadingLossModel::Advance(uint32_t nodeA, uint32_t nodeB) const
         s.evRng->SetStream(m_streamBase + 100000 + key.first * 1000 + key.second);
         s.evStart = -1;
         s.evDepth = 0.0;
+        s.traj.push_back(s.value + EventLoss(s)); // 0. adım (olay yok)
         it = m_links.emplace(key, s).first;
     }
+    return it->second;
+}
 
-    // Son güncellemeden bu yana geçen her adım için AR(1) güncellemesi
-    LinkState& s = it->second;
+void
+SlowFadingLossModel::ExtendTo(LinkState& s, int64_t k) const
+{
+    // Son üretilen adımdan k'ya kadar her adım için AR(1) güncellemesi
     double a = std::exp(-m_step.GetSeconds() / m_tau.GetSeconds());
     double b = m_sigma * std::sqrt(1.0 - a * a);
     int64_t rampSteps = m_eventRamp.GetNanoSeconds() / m_step.GetNanoSeconds();
     int64_t holdSteps = m_eventHold.GetNanoSeconds() / m_step.GetNanoSeconds();
     double pStart = m_eventRate * m_step.GetSeconds(); // adım başına olay olasılığı
-    while (s.step < now)
+    while (s.step < k)
     {
         s.value = a * s.value + b * s.rng->GetValue();
         s.step++;
@@ -129,8 +133,16 @@ SlowFadingLossModel::Advance(uint32_t nodeA, uint32_t nodeB) const
                 s.evDepth = m_eventDepth * d;
             }
         }
+        s.traj.push_back(s.value + EventLoss(s));
     }
-    return s;
+}
+
+double
+SlowFadingLossModel::LossAtStep(uint32_t nodeA, uint32_t nodeB, int64_t k) const
+{
+    LinkState& s = GetLink(nodeA, nodeB);
+    ExtendTo(s, k);
+    return s.traj[k];
 }
 
 double
@@ -157,8 +169,25 @@ SlowFadingLossModel::EventLoss(const LinkState& s) const
 double
 SlowFadingLossModel::GetSlowLossDb(uint32_t nodeA, uint32_t nodeB) const
 {
-    const LinkState& s = Advance(nodeA, nodeB);
-    return s.value + EventLoss(s);
+    return GetSlowLossDbAt(nodeA, nodeB, Simulator::Now());
+}
+
+double
+SlowFadingLossModel::GetSlowLossDbAt(uint32_t nodeA, uint32_t nodeB, Time t) const
+{
+    return LossAtStep(nodeA, nodeB, t.GetNanoSeconds() / m_step.GetNanoSeconds());
+}
+
+double
+SlowFadingLossModel::GetFastSigma() const
+{
+    return m_fastSigma;
+}
+
+Time
+SlowFadingLossModel::GetStep() const
+{
+    return m_step;
 }
 
 double
@@ -169,8 +198,7 @@ SlowFadingLossModel::DoCalcRxPower(double txPowerDbm,
     // Mobilite modeli düğüme bağlıdır; düğüm numarasını oradan alırız
     uint32_t idA = a->GetObject<Node>()->GetId();
     uint32_t idB = b->GetObject<Node>()->GetId();
-    const LinkState& s = Advance(idA, idB);
-    double slow = s.value + EventLoss(s);
+    double slow = GetSlowLossDb(idA, idB);
     double fast = m_fastSigma * m_fast->GetValue();
     // Pozitif değer = ek kayıp, negatif değer = sinyal normalden güçlü
     return txPowerDbm - slow - fast;

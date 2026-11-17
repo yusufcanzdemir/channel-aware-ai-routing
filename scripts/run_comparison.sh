@@ -20,14 +20,15 @@ NS3_DIR="${NS3_DIR:-$HOME/Documents/_projects/ns-allinone-3.44/ns-3.44}"
 SCENARIO="${1:?senaryo adi gerekli (ornek: degrade)}"
 N_SEEDS="${2:-10}"
 FIRST_SEED=101
-METHODS="aodv olsr ai:last ai:ma ai:linear"   # ai:<tahminci>
+METHODS="${METHODS:-aodv olsr ai:last ai:ma ai:linear ai:linear2 ai:oracle}"   # ai:<tahminci>
 
 CSV="$REPO_DIR/data/cmp_$SCENARIO.csv"
 mkdir -p "$REPO_DIR/data"
 rm -f "$CSV"
 
 cd "$NS3_DIR"
-./ns3 build ai_routing > /dev/null
+# Paralel çalıştırmada derleme çakışmasın diye SKIP_BUILD=1 ile atlanabilir
+[[ -n "$SKIP_BUILD" ]] || ./ns3 build ai_routing > /dev/null
 
 for m in $METHODS; do
     if [[ "$m" == ai:* ]]; then

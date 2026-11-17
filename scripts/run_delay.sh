@@ -20,8 +20,8 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 NS3_DIR="${NS3_DIR:-$HOME/Documents/_projects/ns-allinone-3.44/ns-3.44}"
 
 N_SEEDS="${1:-10}"
-FIRST_SEED=101
-SCENARIOS="degrade fading"
+FIRST_SEED="${FIRST_SEED:-101}"
+SCENARIOS="${SCENARIOS:-degrade fading}"
 DELAYS="0 1 2 3"
 PREDICTORS="${PREDICTORS:-last linear}"
 OUT="${OUT:-delay}"
@@ -31,7 +31,8 @@ mkdir -p "$REPO_DIR/data"
 rm -f "$CSV"
 
 cd "$NS3_DIR"
-./ns3 build ai_routing > /dev/null
+# Paralel çalıştırmada derleme çakışmasın diye SKIP_BUILD=1 ile atlanabilir
+[[ -n "$SKIP_BUILD" ]] || ./ns3 build ai_routing > /dev/null
 
 for sc in $SCENARIOS; do
     for d in $DELAYS; do

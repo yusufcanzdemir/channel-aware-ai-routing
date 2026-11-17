@@ -81,6 +81,28 @@
   Fading + 3 s gecikme: son ölçüm %80.5, v1 %85.0, v2 %90.3. Gecikmesiz degrade'de bile v2
   anlamlı şekilde önde (+3.2, p = 0.04)
 
+- Kâhin (oracle) tahminci: rotaların geçerli olacağı dönemin gerçek kanal durumunu bilir
+  (kanal modeli yörüngeyi saklayacak şekilde düzenlendi; diğer yöntemlerin sonuçları birebir aynı).
+  Ölçülen teslim oranıyla korelasyonu 0.92; çarpışmaları bilmediği için ~0.08 iyimser
+- Ana karşılaştırmaya v2 ve kâhin eklendi (seed 101-110, PDR %):
+
+  | Senaryo | AODV | OLSR | AI-son | AI-v2 | AI-kâhin |
+  | --- | --- | --- | --- | --- | --- |
+  | Bozulmasız | 99.3 | 93.0 | 99.9 | 99.7 | 99.95 |
+  | Fading | 65.1 | 65.0 | 95.6 | 96.3 | 97.0 |
+  | Kademeli bozulma | 51.7 | 54.2 | 87.9 | 91.0 | 88.3 |
+
+- Gecikme deneyi 30 seed'e çıkarıldı (son ölçüm ve v2). v2'nin son ölçüme kazancı:
+  degrade 0/1/2/3 s: +2.8 (p = 0.01) / +2.0 (0.34) / +3.8 (0.05) / +4.0 (0.02);
+  fading: +1.6 (0.08) / +2.4 (0.06) / +6.5 (< 0.001) / +8.0 (< 0.001).
+  Gecikmeli tüm koşullar (180 eş): +4.5 puan, 147/180, p < 0.0001
+- Tavan (kâhin) sonucu:
+  - Gecikmesiz: kâhin v2'den anlamlı olarak iyi DEĞİL (fading +0.7, degrade -2.7). Daha iyi kanal
+    tahmini burada kazandırmaz; kâhinin sadece kanalı bilip çarpışmaları bilmemesi degrade'de
+    ölçüme dayalı v2'nin gerisinde kalmasına yol açıyor
+  - Gecikmeli: kâhin v2'nin belirgin üstünde (degrade 1/2/3 s: +6.5 / +10.1 / +17.3;
+    fading +4.8 / +5.5 / +6.7; 2-3 s'de p < 0.05). Daha iyi tahminin değeri gecikmeli koşulda
+
 **Takıldığım yerler / öğrendiklerim**
 - v2 doğrulamasında Python'un "hiç duyulmayan ters link" için eğimi yanlış doldurduğu bulundu
   (-3 yerine 0 olmalıydı); --aiDebugCsv karşılaştırması bu tür hataları yakalıyor
@@ -97,8 +119,9 @@
 - NetAnim için Qt (qtbase5-dev) kurulu değil; yerine Python ile topoloji animasyonu yapıldı
 
 **Gelecek hafta**
-- run_comparison.sh'ye linear2 ekle (AODV/OLSR'ye karşı ana tabloyu v2 ile güncelle)
-- Gecikme deneyini 30 seed ile tekrarla (gecikme başına anlamlılık için)
+- Kontrol trafiğini gerçekten simüle et (ölçüm raporları + rota güncellemeleri ağda paket olsun);
+  gerçekçi gecikme değerini de bu verir
+- Gecikmeli koşul için tahmini güçlendir (tavan ile arada 5-17 puan var)
 - Güncelleme aralığı (--aiInterval) deneyi
 - Modeli iyileştirme: olay öncesi erken uyarı özellikleri, sınıflandırma (kötüleşecek mi?)
 - Diğer senaryolar: girişim (interference), düğüm arızası, tıkanıklık

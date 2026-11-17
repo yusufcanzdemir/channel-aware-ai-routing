@@ -8,6 +8,9 @@
 //                   linkinin ölçümleri (ml/models/linear2_h3.txt)
 //        "last"  : tahmin yok, son ölçüm kullanılır (karşılaştırma için)
 //        "ma"    : son 5 ölçümün ortalaması (karşılaştırma için)
+//        "oracle": kâhin; rotaların uygulanacağı dönemin GERÇEK kanal durumunu kanal
+//                  modelinden okur. Gerçekte imkânsızdır; "tahmin mükemmel olsaydı ne
+//                  kazanırdık?" sorusunun cevabı, yani teorik üst sınır. Çarpışmaları bilmez.
 //   3) Link maliyeti = 1 / (p_gidiş * p_dönüş)  (tahmine dayalı ETX: unicast veri bir yöne,
 //      ACK diğer yöne gider; ikisi de başarılı olmalı). p < minPdr olan link kullanılmaz.
 //   4) Her düğümden her düğüme Dijkstra ile en ucuz yolu bulur
@@ -24,6 +27,7 @@
 #define AI_CONTROLLER_H
 
 #include "link-monitor.h"
+#include "slow-fading-loss-model.h"
 
 #include "ns3/ipv4-address.h"
 #include "ns3/ipv4-static-routing.h"
@@ -52,6 +56,10 @@ class AiController
 
     // LinkMonitor her pencere sonunda bunu çağırır
     void OnWindow(const std::vector<LinkMonitor::Record>& window);
+
+    // Kâhin için: kanal modeli (yoksa sönümleme yok) ve sönümlemesiz alınan güç
+    // nominalRxDbm[tx * n + rx] (mesafe kaybından)
+    void SetOracle(Ptr<SlowFadingLossModel> fading, std::vector<double> nominalRxDbm);
 
     // Doğrulama için: her pencerede her linkin öznitelikleri ve tahmini bu dosyaya yazılır
     void SetDebugCsv(const std::string& path);
@@ -100,6 +108,11 @@ class AiController
     double m_now = 0.0;
 
     std::ofstream m_debug;
+
+    // Kâhin: rotaların geçerli olacağı dönemde gerçek beklenen teslim oranı
+    double OraclePdr(uint32_t tx, uint32_t rx) const;
+    Ptr<SlowFadingLossModel> m_fading;
+    std::vector<double> m_nominalRx;
 };
 
 } // namespace ns3
