@@ -1,0 +1,3 @@
+scenario,routing,n,pdr_mean,pdr_std,pdr_ci95,delay_ms_mean,delay_ms_std,delay_ms_ci95,throughput_kbps_mean,throughput_kbps_std,throughput_kbps_ci95,jitter_ms_mean,jitter_ms_std,jitter_ms_ci95,avg_hops_mean,avg_hops_std,avg_hops_ci95
+none,aodv,10,96.9811,7.4419,5.3236,21.0513,3.9285,2.8103,130.6165,10.0229,7.1700,2.6463,1.0222,0.7313,3.4169,0.4889,0.3497
+none,olsr,10,93.6986,4.5443,3.2508,59.8941,33.8937,24.2461,124.1975,7.7326,5.5316,27.2714,19.7578,14.1339,3.5594,0.5672,0.4058

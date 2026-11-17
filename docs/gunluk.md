@@ -37,3 +37,27 @@
 
 **Gelecek hafta**
 - Bozulma senaryoları ve link başına ölçüm (SNR, kayıp) CSV'si (hafta 4-5)
+
+## Hafta 3
+**Yapılanlar**
+- `--scenario=fading|degrade`: kendi yavaş sönümleme kanal modelimiz (ns3/slow-fading-loss-model.*)
+- `--linkCsv=...`: link başına yoklama tabanlı ölçüm (ns3/link-monitor.*) → saniye başına
+  teslim oranı, SNR, RSSI
+- scripts/run_scenario.sh: senaryo × AODV/OLSR × 10 seed, sonuç + link verisi tek seferde
+- Sonuçlar (yoklamalar açık, 10 seed): bozulmasız AODV %97 / OLSR %94 PDR; fading %56 / %61;
+  kademeli bozulma %53 / %58. Klasik protokoller kanal bozulunca ciddi kayıp yaşıyor
+- Python ortamı (~/Documents/_projects/venv) kuruldu; ml/train_link_model.py ile ilk model
+  - degrade verisi, sonraki 3 s'nin link kalitesi: Gradient Boosting RMSE 0.186, lineer 0.189,
+    "son değer" 0.211 (%12 iyileşme); kötüleşecek link yakalama F1 0.855 → 0.866
+- analysis/plot_demo.py: ön gösterim grafikleri + topoloji animasyonu (results/figures/)
+
+**Takıldığım yerler / öğrendiklerim**
+- İlk denemede (sadece fading) model "son değer"i geçemedi: AR(1) kanal hafızasız, en iyi
+  tahmin zaten şimdiki değere çok yakın. Geçmişin bilgi taşıdığı kademeli bozulma olayları eklendi
+- Tek 1 s pencere (10 yoklama) çok gürültülü; hedefi 3 s ortalaması yapmak modeli belirgin iyileştirdi
+- Model hâlâ en çok şimdiki teslim oranına bakıyor (öznitelik önemi); eğilim girdilerinin katkısı küçük
+- NetAnim için Qt (qtbase5-dev) kurulu değil; yerine Python ile topoloji animasyonu yapıldı
+
+**Gelecek hafta**
+- Modeli iyileştirme: daha sık yoklama, olay öncesi erken uyarı özellikleri, sınıflandırma (kötüleşecek mi?)
+- AI kontrolcü tasarımı: tahmin → link maliyeti → Dijkstra → Ipv4StaticRouting

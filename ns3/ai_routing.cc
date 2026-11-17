@@ -19,8 +19,12 @@
 #include "ns3/olsr-module.h"
 #include "ns3/wifi-module.h"
 
+#include "link-monitor.h"
+#include "slow-fading-loss-model.h"
+
 #include <cmath>
 #include <fstream>
+#include <memory>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -51,7 +55,11 @@ main(int argc, char* argv[])
     // 1. Komut satırı parametreleri
     // ---------------------------------------------------------------------
     std::string routing = "aodv";  // aodv | olsr | ai
-    std::string scenario = "none"; // ileride: interference, pathloss, nodefail, congestion, jamming
+    // none   : bozulmasız, deterministik kanal
+    // fading : her linkte zamanla yavaş değişen sönümleme (slow-fading-loss-model.h)
+    // degrade: fading + linklerde rastgele anlarda kademeli bozulma olayları
+    // ileride: interference, pathloss, nodefail, congestion, jamming
+    std::string scenario = "none";
     uint32_t seed = 1;
     uint32_t nNodes = 16;     // toplam düğüm sayısı
     uint32_t gridWidth = 4;   // ızgarada bir satırdaki düğüm sayısı
@@ -68,6 +76,17 @@ main(int argc, char* argv[])
     double warmup = 30.0;     // trafik başlamadan önce protokollerin rota kurma süresi (s)
     double simTime = 120.0;   // toplam simülasyon süresi (s)
     std::string csvPath = DefaultCsvPath();
+    // fading senaryosu ayarları
+    double fadeSigma = 2.0; // yavaş sönümlemenin büyüklüğü (dB); 2 dB: PDR ~%70-80
+    double fadeTau = 5.0;   // yavaş sönümlemenin ne kadar yavaş değiştiği (s)
+    double fastSigma = 1.0; // paket başına hızlı dalgalanma (dB)
+    // degrade senaryosu: link başına ortalama 120 s'de bir, ~8 dB'e kadar, 25 s süren olay
+    double eventRate = 1.0 / 120.0;
+    double eventDepth = 8.0;
+    // Link ölçümü: dosya yolu verilirse yoklama paketleri açılır ve link CSV'si yazılır
+    std::string linkCsv = "";
+    double probeInterval = 0.1; // yoklama aralığı (s): saniyede 10 yoklama
+    double window = 1.0;        // ölçüm penceresi (s)
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("routing", "Yonlendirme yontemi: aodv | olsr | ai", routing);
@@ -84,6 +103,14 @@ main(int argc, char* argv[])
     cmd.AddValue("warmup", "Trafik baslamadan onceki isinma suresi (s)", warmup);
     cmd.AddValue("simTime", "Toplam simulasyon suresi (s)", simTime);
     cmd.AddValue("csv", "Sonuclarin eklenecegi CSV dosyasi", csvPath);
+    cmd.AddValue("fadeSigma", "fading: yavas sonumleme std sapmasi (dB)", fadeSigma);
+    cmd.AddValue("fadeTau", "fading: yavas sonumleme korelasyon suresi (s)", fadeTau);
+    cmd.AddValue("fastSigma", "fading: paket basina hizli dalgalanma (dB)", fastSigma);
+    cmd.AddValue("eventRate", "degrade: link basina saniyede olay olasiligi", eventRate);
+    cmd.AddValue("eventDepth", "degrade: olay derinligi ust siniri (dB)", eventDepth);
+    cmd.AddValue("linkCsv", "Link olcum CSV dosyasi (bos = olcum kapali)", linkCsv);
+    cmd.AddValue("probeInterval", "Yoklama paketi araligi (s)", probeInterval);
+    cmd.AddValue("window", "Link olcum penceresi (s)", window);
     cmd.Parse(argc, argv);
 
     if (routing == "ai")
@@ -95,6 +122,11 @@ main(int argc, char* argv[])
     if (routing != "aodv" && routing != "olsr")
     {
         std::cerr << "HATA: bilinmeyen yonlendirme yontemi: " << routing << std::endl;
+        return 1;
+    }
+    if (scenario != "none" && scenario != "fading" && scenario != "degrade")
+    {
+        std::cerr << "HATA: bilinmeyen senaryo: " << scenario << std::endl;
         return 1;
     }
 
@@ -138,6 +170,20 @@ main(int argc, char* argv[])
     // değiştirerek kurulacak.
     wifiChannel.AddPropagationLoss("ns3::LogDistancePropagationLossModel",
                                    "Exponent", DoubleValue(3.0));
+    if (scenario == "fading" || scenario == "degrade")
+    {
+        // İkinci kayıp modeli zincire eklenir: önce mesafe kaybı, sonra sönümleme.
+        // Komşu linklerin algılama eşiğine payı sadece 3.3 dB olduğu için birkaç dB'lik
+        // dalgalanma linkleri zaman zaman zayıflatır/koparır; çapraz (56.6 m) linkler
+        // ise zaman zaman kullanılabilir hale gelir.
+        wifiChannel.AddPropagationLoss("ns3::SlowFadingLossModel",
+                                       "Sigma", DoubleValue(fadeSigma),
+                                       "Tau", TimeValue(Seconds(fadeTau)),
+                                       "FastSigma", DoubleValue(fastSigma),
+                                       "EventRate",
+                                       DoubleValue(scenario == "degrade" ? eventRate : 0.0),
+                                       "EventDepth", DoubleValue(eventDepth));
+    }
 
     YansWifiPhyHelper wifiPhy;
     wifiPhy.SetChannel(wifiChannel.Create());
@@ -235,6 +281,18 @@ main(int argc, char* argv[])
     // ---------------------------------------------------------------------
     // 6. Ölçüm ve çalıştırma
     // ---------------------------------------------------------------------
+    // Link ölçümü (isteğe bağlı): yoklamalar simülasyonun başından sonuna kadar
+    std::unique_ptr<LinkMonitor> linkMonitor;
+    if (!linkCsv.empty())
+    {
+        linkMonitor = std::make_unique<LinkMonitor>(nodes,
+                                                    devices,
+                                                    Seconds(probeInterval),
+                                                    Seconds(window),
+                                                    32 /* yoklama boyutu, bayt */);
+        linkMonitor->Start(Seconds(1.0), Seconds(simTime));
+    }
+
     FlowMonitorHelper flowmonHelper;
     Ptr<FlowMonitor> monitor = flowmonHelper.InstallAll();
 
@@ -311,6 +369,12 @@ main(int argc, char* argv[])
         csv << routing << "," << scenario << "," << seed << "," << nNodes << "," << distance
             << "," << nFlows << "," << txPackets << "," << rxPackets << "," << pdr << ","
             << delayMs << "," << throughputKbps << "," << jitterMs << "," << avgHops << "\n";
+    }
+
+    if (linkMonitor)
+    {
+        linkMonitor->WriteCsv(linkCsv, routing, scenario, seed);
+        std::cout << "Link olcumleri: " << linkCsv << std::endl;
     }
 
     Simulator::Destroy();
