@@ -30,9 +30,12 @@ AiController::AiController(NodeContainer nodes,
 {
     NS_ABORT_MSG_IF(interval == 0, "aiInterval en az 1 olmali");
     NS_ABORT_MSG_IF(predictor != "linear" && predictor != "linear2" && predictor != "last" &&
-                        predictor != "ma" && predictor != "oracle",
+                        predictor != "ma" && predictor != "oracle" && predictor != "ewma" &&
+                        predictor != "holt",
                     "Bilinmeyen aiPredictor: " << predictor);
-    if (predictor == "linear" || predictor == "linear2")
+    // Lineer modellerin katsayıları ya da klasik tahmincilerin parametreleri dosyadan
+    if (predictor == "linear" || predictor == "linear2" || predictor == "ewma" ||
+        predictor == "holt")
     {
         LoadModel(modelPath);
     }
@@ -50,6 +53,10 @@ AiController::AiController(NodeContainer nodes,
     m_pdrHist.resize(m_n * m_n);
     m_snrHist.resize(m_n * m_n);
     m_rssiHist.resize(m_n * m_n);
+    m_ewma.assign(m_n * m_n, 0.0);
+    m_level.assign(m_n * m_n, 0.0);
+    m_trend.assign(m_n * m_n, 0.0);
+    m_started.assign(m_n * m_n, false);
     m_nextHop.assign(m_n * m_n, -1);
 }
 
@@ -172,6 +179,27 @@ AiController::PushHistory(const std::vector<LinkMonitor::Record>& window)
         double pdr = r.sent > 0 ? double(r.recv) / r.sent : 0.0;
         double snr = r.nFrames > 0 ? r.snrSum / r.nFrames : std::nan("");
         double rssi = r.nFrames > 0 ? r.rssiSum / r.nFrames : std::nan("");
+        // Klasik tahmincilerin durumu (ilk ölçümde başlatılır)
+        if (!m_started[idx])
+        {
+            m_ewma[idx] = pdr;
+            m_level[idx] = pdr;
+            m_trend[idx] = 0.0;
+            m_started[idx] = true;
+        }
+        else if (m_predictor == "ewma")
+        {
+            double a = m_coef.at("ewma_alpha");
+            m_ewma[idx] = a * pdr + (1 - a) * m_ewma[idx];
+        }
+        else if (m_predictor == "holt")
+        {
+            double a = m_coef.at("holt_alpha");
+            double b = m_coef.at("holt_beta");
+            double prev = m_level[idx];
+            m_level[idx] = a * pdr + (1 - a) * (m_level[idx] + m_trend[idx]);
+            m_trend[idx] = b * (m_level[idx] - prev) + (1 - b) * m_trend[idx];
+        }
         m_pdrHist[idx].push_front(pdr);
         m_snrHist[idx].push_front(snr);
         m_rssiHist[idx].push_front(rssi);
@@ -277,6 +305,15 @@ AiController::Predict(uint32_t tx, uint32_t rx)
     {
         // Yeterli geçmiş yokken (ilk 10 s) her yöntem son ölçümü kullanır
         return p[0];
+    }
+    if (m_predictor == "ewma")
+    {
+        return m_ewma[idx];
+    }
+    if (m_predictor == "holt")
+    {
+        // Sonraki 1, 2, 3 adımın ortalaması = 2 adım ileri
+        return std::clamp(m_level[idx] + 2.0 * m_trend[idx], 0.0, 1.0);
     }
     if (m_predictor == "ma")
     {

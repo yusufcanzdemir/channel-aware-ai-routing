@@ -117,6 +117,20 @@
   - Kontrol: ~60 paket/s, rapor teslimi %76-98, güncelleme %90-99, gecikme ~230-265 ms
 - docs/rapor/proje_rehberi.pdf: kavramlar + yöntem + bulgular + sunum notları (37 sayfa)
 
+- NS-3 tabanlı 4 yeni bozulma senaryosu (ns3/disturbance.*): interference, jamming, nodefail,
+  congestion. Kanal modeline dokunmuyorlar; model bunların verisini hiç görmedi
+- Klasik (öğrenmeyen) rakipler: EWMA, Holt; parametreleri modelle aynı veride ayarlandı
+- Deney döngüsü: scripts/pipeline.sh + scripts/deney_ayarlari.sh + analysis/evaluate.py
+  (results/SONUCLAR.md otomatik). İlk tam koşu: 7 senaryo × 12 yöntem/düzlem × 30 seed = 2520
+  simülasyon (~1 saat, 11 paralel)
+- Sonuç: model v2 (sadece degrade ile eğitilmiş) gerçekçi kontrol düzleminde son ölçümü
+  girişimde +7.1, tıkanıklıkta +9.9, jamming'de +2.3 puan geçiyor (p < 0.001); EWMA'yı 6 bozulmalı
+  senaryonun 5'inde anlamlı geçiyor. Düğüm arızasında ve bozulmasız ağda fark yok. Kâhin
+  (sadece kanalı bilen) kanal dışı senaryolarda modelin gerisinde
+- Cihazda uygulanabilirlik (device/bench_controller.cc, docs/cihaz_uygulanabilirlik.md):
+  16 düğümde karar döngüsü 0.12-0.56 ms, 65 KB; asıl maliyet iletişim (1 Mbps'te ölçüm +
+  kontrol kanalın ~dörtte biri)
+
 **Takıldığım yerler / öğrendiklerim**
 - Kanal kötüleşince kontrol raporları da kayboluyor (degrade'de %76 zamanında ulaşıyor);
   tahmine en çok ihtiyaç duyulan anda bilgi en eksik. Model bu koşulda daha değerli
@@ -135,8 +149,10 @@
 - NetAnim için Qt (qtbase5-dev) kurulu değil; yerine Python ile topoloji animasyonu yapıldı
 
 **Gelecek hafta**
-- Kontrolcü konumu (merkez/köşe), toplama süresi ve tazeleme aralığının etkisi
-- Bilginin yaşını (raporun kaç saniye bayat olduğu) modele girdi olarak vermek
+- Link gecikmesi ölçümü (proje tanımında açıkça isteniyor) + maliyete gecikme
+- Modeli bütün senaryoların verisiyle eğitip döngüyü yeniden koşturmak
+- Ölçüm programını gerçek bir cihazda (Raspberry Pi) çalıştırmak
+- Kontrolcü konumu, toplama süresi, tazeleme aralığı; bilginin yaşını modele vermek
 - Gecikmeli koşul için tahmini güçlendir (tavan ile arada 5-17 puan var)
 - Güncelleme aralığı (--aiInterval) deneyi
 - Modeli iyileştirme: olay öncesi erken uyarı özellikleri, sınıflandırma (kötüleşecek mi?)

@@ -161,7 +161,8 @@ def style(ax):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("csv", nargs="?", default=str(REPO / "data/link_degrade.csv"))
+    ap.add_argument("csv", nargs="*", default=[str(REPO / "data/link_degrade.csv")],
+                    help="bir ya da birden fazla link ölçüm CSV'si (birlikte eğitilir)")
     ap.add_argument("--offset", type=int, default=0,
                     help="kontrol gecikmesi (s): hedef bu kadar ileriden başlar")
     ap.add_argument("--horizon", type=int, default=3,
@@ -170,7 +171,10 @@ def main():
                     help="öznitelik sürümü: 1 = ilk model, 2 = + sinyal payı + ters yön linki")
     args = ap.parse_args()
 
-    raw = pd.read_csv(args.csv)
+    raw = pd.concat([pd.read_csv(f) for f in args.csv], ignore_index=True)
+    # Farklı senaryoların aynı seed'leri farklı çalıştırmalardır: senaryoyu da anahtara kat
+    if "scenario" in raw.columns:
+        raw["routing"] = raw["routing"] + "|" + raw["scenario"]
     # Öznitelikler TÜM linklerde hesaplanır (ters yön linki filtrelenmiş olsa da gerekir),
     # sonra sadece "anlamlı" linkler tutulur: o çalıştırmada ortalama teslim oranı > %5.
     # Hep kopuk uzak düğüm çiftleri tahmini kolaylaştırıp sonuçları şişirirdi.

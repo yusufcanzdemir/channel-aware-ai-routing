@@ -8,6 +8,10 @@
 //                   linkinin ölçümleri (ml/models/linear2_h3.txt)
 //        "last"  : tahmin yok, son ölçüm kullanılır (karşılaştırma için)
 //        "ma"    : son 5 ölçümün ortalaması (karşılaştırma için)
+//        "ewma"  : üstel ağırlıklı hareketli ortalama (klasik, öğrenmeyen rakip)
+//        "holt"  : seviye + eğilim izleyen Holt yöntemi (klasik, öğrenmeyen rakip)
+//                  Parametreleri modelle aynı veride ayarlandı (ml/tune_classic.py,
+//                  ml/models/classic.txt)
 //        "oracle": kâhin; rotaların uygulanacağı dönemin GERÇEK kanal durumunu kanal
 //                  modelinden okur. Gerçekte imkânsızdır; "tahmin mükemmel olsaydı ne
 //                  kazanırdık?" sorusunun cevabı, yani teorik üst sınır. Çarpışmaları bilmez.
@@ -109,6 +113,11 @@ class AiController
     std::vector<std::deque<double>> m_pdrHist;
     std::vector<std::deque<double>> m_snrHist;  // SNR (dB), bilinmiyorsa NaN
     std::vector<std::deque<double>> m_rssiHist; // alınan güç (dBm), bilinmiyorsa NaN
+    // Klasik tahmincilerin link başına durumu
+    std::vector<double> m_ewma;
+    std::vector<double> m_level;
+    std::vector<double> m_trend;
+    std::vector<bool> m_started;
 
     double m_intercept = 0.0;
     std::map<std::string, double> m_coef;

@@ -20,6 +20,7 @@
 #include "ns3/wifi-module.h"
 
 #include "ai-controller.h"
+#include "disturbance.h"
 #include "inband-control.h"
 #include "link-monitor.h"
 #include "slow-fading-loss-model.h"
@@ -66,6 +67,8 @@ main(int argc, char* argv[])
     // none   : bozulmasız, deterministik kanal
     // fading : her linkte zamanla yavaş değişen sönümleme (slow-fading-loss-model.h)
     // degrade: fading + linklerde rastgele anlarda kademeli bozulma olayları
+    // interference | jamming | nodefail | congestion: NS-3'ün kendi mekanizmalarıyla
+    //          gerçek olaylar; kanal modeline dokunmaz (disturbance.h)
     // ileride: interference, pathloss, nodefail, congestion, jamming
     std::string scenario = "none";
     uint32_t seed = 1;
@@ -96,7 +99,7 @@ main(int argc, char* argv[])
     double probeInterval = 0.1; // yoklama aralığı (s): saniyede 10 yoklama
     double window = 1.0;        // ölçüm penceresi (s)
     // AI kontrolcü ayarları (--routing=ai)
-    std::string aiPredictor = "linear"; // linear | linear2 | last | ma | oracle
+    std::string aiPredictor = "linear"; // linear | linear2 | last | ma | ewma | holt | oracle
     uint32_t aiHorizon = 3;             // model kaç saniyelik ortalamayı tahmin ediyor
     std::string aiModel = "";           // boş: gecikmeye uygun model otomatik seçilir
     double aiDelay = 0.0;               // rotaların düğümlere ulaşma gecikmesi (s)
@@ -133,7 +136,9 @@ main(int argc, char* argv[])
     cmd.AddValue("linkCsv", "Link olcum CSV dosyasi (bos = olcum kapali)", linkCsv);
     cmd.AddValue("probeInterval", "Yoklama paketi araligi (s)", probeInterval);
     cmd.AddValue("window", "Link olcum penceresi (s)", window);
-    cmd.AddValue("aiPredictor", "AI tahminci: linear | linear2 | last | ma | oracle", aiPredictor);
+    cmd.AddValue("aiPredictor",
+                 "AI tahminci: linear | linear2 | last | ma | ewma | holt | oracle",
+                 aiPredictor);
     cmd.AddValue("aiHorizon", "AI: modelin tahmin ufku (s), model dosyasini secer", aiHorizon);
     cmd.AddValue("aiModel", "Lineer model katsayi dosyasi", aiModel);
     cmd.AddValue("aiDelay", "AI: rota uygulama gecikmesi (s), 0 = ideal", aiDelay);
@@ -152,7 +157,8 @@ main(int argc, char* argv[])
         std::cerr << "HATA: bilinmeyen yonlendirme yontemi: " << routing << std::endl;
         return 1;
     }
-    if (scenario != "none" && scenario != "fading" && scenario != "degrade")
+    if (scenario != "none" && scenario != "fading" && scenario != "degrade" &&
+        !Disturbance::IsDisturbance(scenario))
     {
         std::cerr << "HATA: bilinmeyen senaryo: " << scenario << std::endl;
         return 1;
@@ -187,6 +193,10 @@ main(int argc, char* argv[])
         }
         // Model seçilmediyse gecikmeye göre eğitilmiş modeli kullan
         // (gecikme D s ise model t+D+1..t+D+3 aralığını tahmin edecek şekilde eğitildi)
+        if (aiModel.empty() && (aiPredictor == "ewma" || aiPredictor == "holt"))
+        {
+            aiModel = RepoPath("ml/models/classic.txt");
+        }
         if (aiModel.empty() && aiPredictor.rfind("linear", 0) == 0)
         {
             // Örnek: linear_h3.txt, linear_o2_h3.txt, linear2_o1_h1.txt
@@ -268,6 +278,20 @@ main(int argc, char* argv[])
     WifiMacHelper wifiMac;
     wifiMac.SetType("ns3::AdhocWifiMac"); // erişim noktası yok, düğümler eşit
     NetDeviceContainer devices = wifi.Install(wifiPhy, wifiMac, nodes);
+
+    // NS-3 tabanlı bozulma senaryoları: ek radyolar (girişim kaynağı, jammer) aynı kanala
+    std::unique_ptr<Disturbance> disturbance;
+    if (Disturbance::IsDisturbance(scenario))
+    {
+        disturbance = std::make_unique<Disturbance>(scenario,
+                                                    nodes,
+                                                    devices,
+                                                    distance,
+                                                    gridWidth,
+                                                    warmup,
+                                                    simTime - 5.0);
+        disturbance->InstallRadios(wifi, wifiPhy, wifiMac);
+    }
 
     // ---------------------------------------------------------------------
     // 4. IP yığını ve yönlendirme protokolü
@@ -362,6 +386,12 @@ main(int argc, char* argv[])
     // ---------------------------------------------------------------------
     // 6. Ölçüm ve çalıştırma
     // ---------------------------------------------------------------------
+    if (disturbance)
+    {
+        disturbance->Schedule(interfaces, flows);
+        disturbance->PrintPlan();
+    }
+
     // Link ölçümü: CSV istendiyse veya AI kontrolcü kullanılıyorsa (ölçümlere muhtaç).
     // Yoklamalar simülasyonun başından sonuna kadar.
     std::unique_ptr<LinkMonitor> linkMonitor;
@@ -436,7 +466,8 @@ main(int argc, char* argv[])
     }
 
     FlowMonitorHelper flowmonHelper;
-    Ptr<FlowMonitor> monitor = flowmonHelper.InstallAll();
+    // Sadece ana düğümler (ek girişim radyolarında IP yığını yok)
+    Ptr<FlowMonitor> monitor = flowmonHelper.Install(nodes);
 
     Simulator::Stop(Seconds(simTime));
     Simulator::Run();
