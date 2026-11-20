@@ -18,6 +18,7 @@
 //
 // Paket biçimi (bayt): [tür][flood][kaynak][hedef][pencere(2)] + içerik
 //   RAPOR içeriği     : [k] + k × [gönderen][alınan][SNR×100 (2)][RSSI×100 (2)][çerçeve]
+//                       (+ [gecikme×10000 (2), 0.1 ms biriminde] SetReportDelay(true) ise)
 //   GÜNCELLEME içeriği: n × [sonraki sekme] (255 = rota yok)
 
 #ifndef INBAND_CONTROL_H
@@ -69,6 +70,10 @@ class InbandControl
 
     const Stats& GetStats() const;
 
+    // Raporlara link gecikmesini de ekle (link başına +2 bayt). Sadece gecikmeyi kullanan
+    // maliyet (--aiCost=ett) için açılır; diğer yöntemlerin rapor boyutu değişmez.
+    void SetReportDelay(bool on);
+
     // Kontrol paketlerinin UDP portu (FlowMonitor'da veri trafiğinden ayırmak için)
     static const uint16_t kPort = 7000;
 
@@ -95,6 +100,7 @@ class InbandControl
         double snr;
         double rssi;
         uint8_t nFrames;
+        double delay = 0.0; // ortalama yoklama gecikmesi (s)
     };
 
     struct LatestReport
@@ -122,6 +128,7 @@ class InbandControl
     double m_collectWait;
     double m_bootstrapEnd;
     uint32_t m_refreshEvery;
+    bool m_reportDelay = false;
 
     std::vector<Ptr<Socket>> m_sockets;
     std::vector<Ipv4Address> m_addr;

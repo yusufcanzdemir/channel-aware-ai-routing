@@ -105,6 +105,10 @@ main(int argc, char* argv[])
     double aiDelay = 0.0;               // rotaların düğümlere ulaşma gecikmesi (s)
     uint32_t aiInterval = 1;            // rotalar kaç saniyede bir güncellenir
     double aiMinPdr = 0.3;              // tahmini teslim oranı bunun altındaki link kullanılmaz
+    // Link maliyeti: etx (beklenen iletim sayısı) | ett (beklenen iletim süresi + gecikme)
+    std::string aiCost = "etx";
+    double aiTxTime = 0.0;              // ett: bir veri paketinin iletim süresi (s); 0 = hesapla
+    double aiDelayWeight = 1.0;         // ett: gecikme teriminin ağırlığı
     std::string aiDebugCsv = "";        // doğrulama: öznitelik + tahmin dökümü
     // Kontrol düzlemi: ideal (bilgi anında, ağa yük yok) | inband (ağda gerçek paketler)
     std::string controlPlane = "ideal";
@@ -144,6 +148,9 @@ main(int argc, char* argv[])
     cmd.AddValue("aiDelay", "AI: rota uygulama gecikmesi (s), 0 = ideal", aiDelay);
     cmd.AddValue("aiInterval", "AI: rota guncelleme araligi (pencere)", aiInterval);
     cmd.AddValue("aiMinPdr", "AI: bu tahminin altindaki link kullanilmaz", aiMinPdr);
+    cmd.AddValue("aiCost", "AI link maliyeti: etx | ett (gecikme dahil)", aiCost);
+    cmd.AddValue("aiTxTime", "ett: veri paketi iletim suresi (s), 0 = otomatik", aiTxTime);
+    cmd.AddValue("aiDelayWeight", "ett: gecikme teriminin agirligi", aiDelayWeight);
     cmd.AddValue("aiDebugCsv", "AI: oznitelik/tahmin dokumu (dogrulama icin)", aiDebugCsv);
     cmd.AddValue("controlPlane", "AI kontrol duzlemi: ideal | inband", controlPlane);
     cmd.AddValue("controller", "inband: kontrolcu dugumu", controller);
@@ -181,6 +188,15 @@ main(int argc, char* argv[])
         if (aiHorizon != 3 && aiPredictor.rfind("linear", 0) == 0)
         {
             method += "-h" + std::to_string(aiHorizon);
+        }
+        if (aiCost == "ett")
+        {
+            method += "-ett"; // gecikmeli maliyet
+            if (std::abs(aiDelayWeight - 1.0) > 1e-9)
+            {
+                // ağırlık yüzde olarak: 0.2 -> ai-linear2-ettw20
+                method += "w" + std::to_string(int(std::lround(aiDelayWeight * 100)));
+            }
         }
         if (controlPlane == "inband")
         {
@@ -419,6 +435,13 @@ main(int argc, char* argv[])
         {
             ai->SetDebugCsv(aiDebugCsv);
         }
+        if (aiTxTime <= 0.0)
+        {
+            // 802.11b, 1 Mbps: önsöz 192 µs + (yük + UDP/IP 28 + MAC/LLC/FCS 36 bayt) × 8 µs
+            //                  + SIFS 10 µs + ACK 304 µs + DIFS 50 µs  (512 bayt için ~5.2 ms)
+            aiTxTime = (192.0 + (packetSize + 28 + 36) * 8.0 + 10.0 + 304.0 + 50.0) * 1e-6;
+        }
+        ai->SetCost(aiCost, aiTxTime, aiDelayWeight);
         if (aiPredictor == "oracle")
         {
             // Sönümlemesiz alınan güç: kanaldakiyle aynı ayarlı, AYRI bir mesafe kaybı modeli
@@ -454,6 +477,7 @@ main(int argc, char* argv[])
                                                      collectWait,
                                                      bootstrap,
                                                      refresh);
+            inband->SetReportDelay(aiCost == "ett");
             InbandControl* ibPtr = inband.get();
             linkMonitor->SetWindowCallback(
                 [ibPtr](const std::vector<LinkMonitor::Record>& w) { ibPtr->OnWindow(w); });

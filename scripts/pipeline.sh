@@ -72,10 +72,14 @@ if has deney; then
             fi
             for pl in $planes; do
                 for seed in $(seq "$EVAL_FIRST_SEED" "$last_seed"); do
-                    out="$RAW/${sc}__${m/:/-}__${pl}__${seed}.csv"
+                    out="$RAW/${sc}__${m//:/-}__${pl}__${seed}.csv"
                     [[ -f "$out" ]] && continue
                     if [[ "$m" == ai:* ]]; then
-                        args="--routing=ai --aiPredictor=${m#ai:} --controlPlane=$pl"
+                        # ai:<tahminci>[:<maliyet>[:<gecikme ağırlığı>]]
+                        IFS=: read -r _ pred cost weight <<< "$m"
+                        args="--routing=ai --aiPredictor=$pred --controlPlane=$pl"
+                        [[ -n "$cost" ]] && args="$args --aiCost=$cost"
+                        [[ -n "$weight" ]] && args="$args --aiDelayWeight=$weight"
                     else
                         args="--routing=$m --linkCsv=/dev/null"  # yoklama yükü herkese eşit
                     fi

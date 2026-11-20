@@ -53,6 +53,7 @@ AiController::AiController(NodeContainer nodes,
     m_pdrHist.resize(m_n * m_n);
     m_snrHist.resize(m_n * m_n);
     m_rssiHist.resize(m_n * m_n);
+    m_delayHist.resize(m_n * m_n);
     m_ewma.assign(m_n * m_n, 0.0);
     m_level.assign(m_n * m_n, 0.0);
     m_trend.assign(m_n * m_n, 0.0);
@@ -132,6 +133,33 @@ AiController::OraclePdr(uint32_t tx, uint32_t rx) const
     return count > 0 ? sum / count : 0.0;
 }
 
+void
+AiController::SetCost(const std::string& mode, double txTime, double delayWeight)
+{
+    NS_ABORT_MSG_IF(mode != "etx" && mode != "ett", "Bilinmeyen aiCost: " << mode);
+    m_costMode = mode;
+    m_txTime = txTime;
+    m_delayWeight = delayWeight;
+}
+
+double
+AiController::RecentDelay(uint32_t idx) const
+{
+    // Son 3 penceredeki ölçülmüş gecikmelerin ortalaması (tek pencere gürültülü)
+    const auto& d = m_delayHist[idx];
+    double sum = 0.0;
+    int n = 0;
+    for (size_t k = 0; k < d.size() && k < 3; ++k)
+    {
+        if (!std::isnan(d[k]))
+        {
+            sum += d[k];
+            n++;
+        }
+    }
+    return n > 0 ? sum / n : 0.0;
+}
+
 uint64_t
 AiController::GetRouteChanges() const
 {
@@ -203,11 +231,13 @@ AiController::PushHistory(const std::vector<LinkMonitor::Record>& window)
         m_pdrHist[idx].push_front(pdr);
         m_snrHist[idx].push_front(snr);
         m_rssiHist[idx].push_front(rssi);
+        m_delayHist[idx].push_front(r.recv > 0 ? r.delaySum / r.recv : std::nan(""));
         if (m_pdrHist[idx].size() > kHistory)
         {
             m_pdrHist[idx].pop_back();
             m_snrHist[idx].pop_back();
             m_rssiHist[idx].pop_back();
+            m_delayHist[idx].pop_back();
         }
     }
 }
@@ -375,7 +405,11 @@ AiController::ComputeRoutes()
             double rev = pred[v * m_n + u]; // ACK v -> u
             if (u != v && fwd >= m_minPdr && rev >= m_minPdr)
             {
-                cost[u * m_n + v] = 1.0 / (fwd * rev); // beklenen iletim sayısı
+                double etx = 1.0 / (fwd * rev); // beklenen iletim sayısı
+                cost[u * m_n + v] =
+                    m_costMode == "ett"
+                        ? etx * m_txTime + m_delayWeight * RecentDelay(u * m_n + v)
+                        : etx;
             }
         }
     }

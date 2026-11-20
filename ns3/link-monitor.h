@@ -5,6 +5,10 @@
 // penceresinin (ör. 1 s) sonunda her yönlü link (gönderen -> alan) için:
 //   - gönderilen yoklama sayısı, alınan yoklama sayısı -> teslim oranı (link PDR)
 //   - o linkten duyulan tüm veri çerçevelerinin ortalama SNR'ı ve RSSI'ı
+//   - yoklamaların ortalama tek yön gecikmesi: yoklamaya gönderim zamanı yazılır, alıcı
+//     varış zamanından çıkarır. Bu süre gönderenin kuyruğunda bekleme + kanalın boşalmasını
+//     bekleme + iletim süresidir; tıkanıklık ve girişim bunu artırır. (Simülasyonda bütün
+//     düğümlerin saati ortaktır; gerçek cihazda saat senkronizasyonu gerekir.)
 // kaydedilir. Simülasyon sonunda en az bir kez paket duyulmuş linkler CSV'ye yazılır.
 //
 // Yoklamalar IP katmanını kullanmaz (doğrudan Wi-Fi cihazına, kendi EtherType'ı ile
@@ -43,6 +47,7 @@ class LinkMonitor
         double snrSum;    // rx'in tx'ten duyduğu çerçevelerin SNR toplamı (dB)
         double rssiSum;   // aynı çerçevelerin alınan güç toplamı (dBm)
         uint32_t nFrames; // SNR örneği sayısı
+        double delaySum = 0.0; // alınan yoklamaların tek yön gecikmeleri toplamı (s)
     };
 
     LinkMonitor(NodeContainer nodes,
@@ -58,6 +63,12 @@ class LinkMonitor
     // AI kontrolcü ölçümleri canlı olarak buradan alır.
     using WindowCallback = std::function<void(const std::vector<Record>&)>;
     void SetWindowCallback(WindowCallback cb);
+
+    // Simülasyon boyunca biriken bütün pencere kayıtları
+    const std::vector<Record>& GetRecords() const
+    {
+        return m_records;
+    }
 
     // Tüm kayıtları CSV'ye ekler (dosya yoksa başlık satırı yazar)
     void WriteCsv(const std::string& path,
@@ -105,6 +116,7 @@ class LinkMonitor
     std::vector<double> m_snrSum;
     std::vector<double> m_rssiSum;
     std::vector<uint32_t> m_nFrames;
+    std::vector<double> m_delaySum;
 
     std::vector<Record> m_records;
     WindowCallback m_windowCb;

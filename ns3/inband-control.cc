@@ -59,6 +59,12 @@ InbandControl::InbandControl(NodeContainer nodes,
     }
 }
 
+void
+InbandControl::SetReportDelay(bool on)
+{
+    m_reportDelay = on;
+}
+
 const InbandControl::Stats&
 InbandControl::GetStats() const
 {
@@ -85,6 +91,7 @@ InbandControl::OnWindow(const std::vector<LinkMonitor::Record>& window)
         e.snr = r.nFrames > 0 ? r.snrSum / r.nFrames : 0.0;
         e.rssi = r.nFrames > 0 ? r.rssiSum / r.nFrames : 0.0;
         e.nFrames = std::min<uint32_t>(r.nFrames, 255);
+        e.delay = r.recv > 0 ? r.delaySum / r.recv : 0.0;
         perNode[r.rx].push_back(e);
     }
     for (uint32_t i = 0; i < m_n; ++i)
@@ -118,6 +125,13 @@ InbandControl::SendReport(uint32_t node, uint32_t window, std::vector<ReportEntr
         payload.push_back(uint8_t(uint16_t(rssi) >> 8));
         payload.push_back(uint8_t(uint16_t(rssi) & 0xff));
         payload.push_back(e.nFrames);
+        if (m_reportDelay)
+        {
+            // 0.1 ms biriminde, en fazla 6.5 s
+            uint16_t d = uint16_t(std::min(65535.0, std::round(e.delay * 10000.0)));
+            payload.push_back(uint8_t(d >> 8));
+            payload.push_back(uint8_t(d & 0xff));
+        }
     }
     m_stats.reportsSent++;
     Send(node, m_controller, REPORT, window, payload);
@@ -158,6 +172,7 @@ InbandControl::Compute(uint32_t window)
             r.nFrames = e.nFrames;
             r.snrSum = e.snr * e.nFrames;
             r.rssiSum = e.rssi * e.nFrames;
+            r.delaySum = e.delay * r.recv; // kontrolcü ortalamayı sum / recv ile geri alır
         }
     }
     for (uint32_t tx = 0; tx < m_n; ++tx)
@@ -312,7 +327,8 @@ InbandControl::Deliver(uint32_t node, const Header& h, const uint8_t* payload, u
             return;
         }
         uint32_t k = payload[0];
-        if (len < 1 + 7 * k)
+        uint32_t es = m_reportDelay ? 9 : 7; // rapor girdisi boyutu (bayt)
+        if (len < 1 + es * k)
         {
             return;
         }
@@ -326,13 +342,14 @@ InbandControl::Deliver(uint32_t node, const Header& h, const uint8_t* payload, u
         rep.valid = true;
         for (uint32_t i = 0; i < k; ++i)
         {
-            const uint8_t* e = payload + 1 + 7 * i;
+            const uint8_t* e = payload + 1 + es * i;
             ReportEntry r;
             r.tx = e[0];
             r.recv = e[1];
             r.snr = int16_t(uint16_t(e[2] << 8 | e[3])) / 100.0;
             r.rssi = int16_t(uint16_t(e[4] << 8 | e[5])) / 100.0;
             r.nFrames = e[6];
+            r.delay = m_reportDelay ? uint16_t(e[7] << 8 | e[8]) / 10000.0 : 0.0;
             rep.entries.push_back(r);
         }
         m_latest[h.origin] = rep;

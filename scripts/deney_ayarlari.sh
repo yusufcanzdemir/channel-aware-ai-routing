@@ -16,7 +16,8 @@ EVAL_SEEDS=30
 # Yöntemler. ai:<tahminci> AI kontrolcüdür; tahminciler:
 #   last   = son ölçüm (tahmin yok)         ewma, holt = klasik (öğrenmeyen) tahmin
 #   linear2 = öğrenilmiş model v2           oracle = gerçek geleceği bilen kâhin (üst sınır)
-METHODS="aodv olsr ai:last ai:ewma ai:holt ai:linear2 ai:oracle"
+#   ai:<tahminci>:ett[:ağırlık] = gecikmeli maliyet (ETT), gecikme terimi ağırlıklı (varsayılan 1)
+METHODS="aodv olsr ai:last ai:ewma ai:holt ai:linear2 ai:oracle ai:linear2:ett ai:linear2:ett:0.2"
 
 # AI yöntemleri için kontrol düzlemleri: ideal (bilgi anında) ve inband (ağda gerçek paket)
 PLANES="ideal inband"

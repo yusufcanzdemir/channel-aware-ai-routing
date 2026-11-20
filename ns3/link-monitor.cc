@@ -29,6 +29,7 @@ LinkMonitor::LinkMonitor(NodeContainer nodes,
     m_snrSum.assign(m_n * m_n, 0.0);
     m_rssiSum.assign(m_n * m_n, 0.0);
     m_nFrames.assign(m_n * m_n, 0);
+    m_delaySum.assign(m_n * m_n, 0.0);
 
     // Yoklama zamanlarındaki rastgele kayma için ayrı, sabit numaralı stream
     // (seed'e bağlı, yönlendirme protokolünden bağımsız)
@@ -73,7 +74,14 @@ LinkMonitor::SendProbe(uint32_t node)
     {
         return;
     }
-    Ptr<Packet> p = Create<Packet>(m_probeSize);
+    // Yoklamanın ilk 8 baytına gönderim zamanı (ns) yazılır; boyut aynı kalır
+    std::vector<uint8_t> buf(m_probeSize, 0);
+    int64_t ts = Simulator::Now().GetNanoSeconds();
+    for (int b = 0; b < 8 && b < int(m_probeSize); ++b)
+    {
+        buf[b] = uint8_t((uint64_t(ts) >> (8 * b)) & 0xff);
+    }
+    Ptr<Packet> p = Create<Packet>(buf.data(), m_probeSize);
     m_devices.Get(node)->Send(p, Mac48Address::GetBroadcast(), kProbeProtocol);
     m_sent[node]++;
 
@@ -94,7 +102,20 @@ LinkMonitor::OnProbe(uint32_t rx,
     auto it = m_macToNode.find(Mac48Address::ConvertFrom(from));
     if (it != m_macToNode.end())
     {
-        m_recv[it->second * m_n + rx]++;
+        uint32_t idx = it->second * m_n + rx;
+        m_recv[idx]++;
+        // Tek yön gecikme = varış zamanı - yoklamaya yazılan gönderim zamanı
+        if (pkt->GetSize() >= 8)
+        {
+            uint8_t b[8];
+            pkt->CopyData(b, 8);
+            uint64_t ts = 0;
+            for (int k = 0; k < 8; ++k)
+            {
+                ts |= uint64_t(b[k]) << (8 * k);
+            }
+            m_delaySum[idx] += (Simulator::Now().GetNanoSeconds() - int64_t(ts)) * 1e-9;
+        }
     }
 }
 
@@ -153,7 +174,8 @@ LinkMonitor::EndWindow()
                                        m_recv[idx],
                                        m_snrSum[idx],
                                        m_rssiSum[idx],
-                                       m_nFrames[idx]});
+                                       m_nFrames[idx],
+                                       m_delaySum[idx]});
         }
     }
     // Dinleyen varsa (AI kontrolcü) bu pencerenin ölçümlerini ilet
@@ -169,6 +191,7 @@ LinkMonitor::EndWindow()
     std::fill(m_snrSum.begin(), m_snrSum.end(), 0.0);
     std::fill(m_rssiSum.begin(), m_rssiSum.end(), 0.0);
     std::fill(m_nFrames.begin(), m_nFrames.end(), 0);
+    std::fill(m_delaySum.begin(), m_delaySum.end(), 0.0);
 
     if (Simulator::Now() + m_window <= m_stop)
     {
@@ -201,7 +224,8 @@ LinkMonitor::WriteCsv(const std::string& path,
     }
     if (newFile)
     {
-        csv << "routing,scenario,seed,time,tx,rx,sent,recv,pdr,snr_db,rssi_dbm,n_frames\n";
+        csv << "routing,scenario,seed,time,tx,rx,sent,recv,pdr,snr_db,rssi_dbm,n_frames,"
+               "delay_ms\n";
     }
     for (const auto& r : m_records)
     {
@@ -221,7 +245,13 @@ LinkMonitor::WriteCsv(const std::string& path,
         {
             csv << ",";
         }
-        csv << "," << r.nFrames << "\n";
+        csv << "," << r.nFrames << ",";
+        // Ortalama yoklama gecikmesi (ms); hiç yoklama alınmadıysa bilinmiyor: boş
+        if (r.recv > 0)
+        {
+            csv << 1000.0 * r.delaySum / r.recv;
+        }
+        csv << "\n";
     }
 }
 

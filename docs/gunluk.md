@@ -131,7 +131,17 @@
   16 düğümde karar döngüsü 0.12-0.56 ms, 65 KB; asıl maliyet iletişim (1 Mbps'te ölçüm +
   kontrol kanalın ~dörtte biri)
 
+- Link gecikmesi ölçümü: yoklamalara gönderim zamanı yazılıyor; link CSV'sinde `delay_ms`.
+  Bozulmasız ağda medyan ~1.1 ms, tıkanıklık/girişimde ortalama 10-14 ms, en kötü 400+ ms
+- Gecikmeli maliyet (ETT, `--aiCost=ett`, ağırlık 1 ve 0.2) 30 seed × 7 senaryoda denendi:
+  ağırlık 1 PDR'ı ve gecikmeyi kötüleştirdi (gerçekçi düzlemde −8/−9 puan), 0.2 nötr.
+  Sonuç: gecikme izleniyor ama karar ETX ile kalıyor
+- Lokal sunum sitesi (`site/`, `python site/server.py` → http://localhost:8000): animasyonlar,
+  gerçek simülasyon kayıtları (AODV ve AI yan yana), canlı deney (2-4 yöntem seçilebilir)
+
 **Takıldığım yerler / öğrendiklerim**
+- Gecikmeye dayalı maliyet kendi trafiğinden kaçmaya çalışıyor: kuyruğu yaratan zaten akışların
+  kendisi; trafiği zayıf linklere taşımak kayıp ve gecikmeyi artırıyor
 - Kanal kötüleşince kontrol raporları da kayboluyor (degrade'de %76 zamanında ulaşıyor);
   tahmine en çok ihtiyaç duyulan anda bilgi en eksik. Model bu koşulda daha değerli
 - v2 doğrulamasında Python'un "hiç duyulmayan ters link" için eğimi yanlış doldurduğu bulundu
@@ -149,7 +159,6 @@
 - NetAnim için Qt (qtbase5-dev) kurulu değil; yerine Python ile topoloji animasyonu yapıldı
 
 **Gelecek hafta**
-- Link gecikmesi ölçümü (proje tanımında açıkça isteniyor) + maliyete gecikme
 - Modeli bütün senaryoların verisiyle eğitip döngüyü yeniden koşturmak
 - Ölçüm programını gerçek bir cihazda (Raspberry Pi) çalıştırmak
 - Kontrolcü konumu, toplama süresi, tazeleme aralığı; bilginin yaşını modele vermek

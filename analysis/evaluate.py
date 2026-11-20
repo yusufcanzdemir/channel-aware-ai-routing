@@ -30,7 +30,8 @@ SCEN_NAMES = {"none": "Bozulmasız", "fading": "Fading", "degrade": "Kademeli bo
               "congestion": "Tıkanıklık"}
 METH_NAMES = {"aodv": "AODV", "olsr": "OLSR", "ai-last": "Son ölçüm", "ai-ma": "Hareketli ort.",
               "ai-ewma": "EWMA", "ai-holt": "Holt", "ai-linear": "Model v1",
-              "ai-linear2": "Model v2", "ai-oracle": "Kâhin"}
+              "ai-linear2": "Model v2", "ai-oracle": "Kâhin",
+              "ai-linear2-ett": "v2 + gecikme (1)", "ai-linear2-ettw20": "v2 + gecikme (0.2)"}
 TEXT, MUTED, GRID, AXIS = "#0b0b0b", "#52514e", "#e1e0d9", "#c3c2b7"
 
 
@@ -70,11 +71,11 @@ def summary(df):
     return s
 
 
-def paired(df, sc, a, b):
-    """a - b farkı, aynı seed'lerde. a, b: (method, plane)."""
+def paired(df, sc, a, b, metric="pdr"):
+    """a - b farkı, aynı seed'lerde. a, b: (method, plane). metric: pdr ya da delay_ms."""
     sub = df[df["scenario"] == sc]
-    x = sub[(sub["method"] == a[0]) & (sub["plane"] == a[1])].set_index("seed")["pdr"]
-    y = sub[(sub["method"] == b[0]) & (sub["plane"] == b[1])].set_index("seed")["pdr"]
+    x = sub[(sub["method"] == a[0]) & (sub["plane"] == a[1])].set_index("seed")[metric]
+    y = sub[(sub["method"] == b[0]) & (sub["plane"] == b[1])].set_index("seed")[metric]
     d = (x - y).dropna()
     if len(d) < 2:
         return None
@@ -93,6 +94,13 @@ def tests(df):
                 r = paired(df, sc, (a, pl), (b, pl))
                 if r:
                     rows.append({"scenario": sc, "plane": pl, "karsilastirma": f"{a} - {b}", **r})
+            # Gecikmeli maliyet (ETT) varyantları: PDR ve uçtan uca gecikme farkı
+            for ett in ("ai-linear2-ett", "ai-linear2-ettw20"):
+                for metric, tag in (("pdr", ""), ("delay_ms", " [gecikme ms]")):
+                    r = paired(df, sc, (ett, pl), ("ai-linear2", pl), metric)
+                    if r:
+                        rows.append({"scenario": sc, "plane": pl,
+                                     "karsilastirma": f"{ett} - ai-linear2{tag}", **r})
             for ref in ("aodv", "olsr"):
                 r = paired(df, sc, ("ai-linear2", pl), (ref, "-"))
                 if r:
@@ -237,6 +245,25 @@ def markdown(s, t):
                 cells.append(f"{r['fark'].iloc[0]:+.1f} ({r['ilk_daha_iyi'].iloc[0]}/"
                              f"{r['n'].iloc[0]} seed önde)" if len(r) else "-")
             L.append(f"| {SCEN_NAMES[sc]} | {pl} | " + " | ".join(cells) + " |")
+    if t["karsilastirma"].str.startswith("ai-linear2-ett").any():
+        L += ["", "## Gecikmeli maliyet (ETT) ne kazandırıyor?", "",
+              "Model v2 aynı; sadece link maliyeti değişiyor: ETX yerine beklenen iletim süresi "
+              "+ ağırlık × ölçülen gecikme. Fark = ETT − ETX (aynı seed'ler). PDR'da + iyi; "
+              "gecikmede − iyi.", "",
+              "| Senaryo | Düzlem | ağırlık 1: PDR | ağırlık 1: gecikme (ms) "
+              "| ağırlık 0.2: PDR | ağırlık 0.2: gecikme (ms) |",
+              "| --- | --- | --- | --- | --- | --- |"]
+        for sc in scen:
+            for pl in ("ideal", "inband"):
+                cells = []
+                for ett in ("ai-linear2-ett", "ai-linear2-ettw20"):
+                    for tag in ("", " [gecikme ms]"):
+                        comp = f"{ett} - ai-linear2{tag}"
+                        r = t[(t["scenario"] == sc) & (t["plane"] == pl) &
+                              (t["karsilastirma"] == comp)]
+                        cells.append(f"{r['fark'].iloc[0]:+.1f} (p {fmt_p(r['p_ttest'].iloc[0])})"
+                                     if len(r) else "-")
+                L.append(f"| {SCEN_NAMES[sc]} | {pl} | " + " | ".join(cells) + " |")
     ib = s[(s["plane"] == "inband") & (s["method"] == "ai-linear2")]
     if len(ib):
         L += ["", "## Gerçekçi kontrol düzlemi (model v2, in-band)", "",

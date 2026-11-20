@@ -77,6 +77,15 @@ class AiController
     // Doğrulama için: her pencerede her linkin öznitelikleri ve tahmini bu dosyaya yazılır
     void SetDebugCsv(const std::string& path);
 
+    // Link maliyeti türü:
+    //   "etx": 1 / (p_gidiş · p_dönüş)                    (beklenen iletim sayısı, varsayılan)
+    //   "ett": ETX · txTime + ölçülen gecikme (s)         (beklenen iletim süresi + kuyruk/kanal
+    //          bekleme; yol maliyeti saniye cinsinden toplam süre olur, güvenilirlik ile
+    //          gecikmeyi birlikte dengeler)
+    // txTime: bir veri paketinin bir sekmedeki iletim süresi (ACK dahil)
+    // delayWeight: gecikme teriminin ağırlığı (1 = iletim süresiyle eşit önem)
+    void SetCost(const std::string& mode, double txTime, double delayWeight = 1.0);
+
     // Simülasyon boyunca kaç kez bir (kaynak, hedef) için sonraki sekme değişti
     uint64_t GetRouteChanges() const;
 
@@ -102,6 +111,11 @@ class AiController
     uint32_t m_n;
     std::string m_predictor;
     double m_minPdr;
+    std::string m_costMode = "etx";
+    double m_txTime = 0.0;
+    double m_delayWeight = 1.0;
+    // Linkin son birkaç penceredeki ortalama gecikmesi (s); hiç ölçüm yoksa 0
+    double RecentDelay(uint32_t idx) const;
     double m_delay;
     uint32_t m_interval;
     uint32_t m_windowCount = 0;
@@ -113,6 +127,7 @@ class AiController
     std::vector<std::deque<double>> m_pdrHist;
     std::vector<std::deque<double>> m_snrHist;  // SNR (dB), bilinmiyorsa NaN
     std::vector<std::deque<double>> m_rssiHist; // alınan güç (dBm), bilinmiyorsa NaN
+    std::vector<std::deque<double>> m_delayHist; // yoklama gecikmesi (s), bilinmiyorsa NaN
     // Klasik tahmincilerin link başına durumu
     std::vector<double> m_ewma;
     std::vector<double> m_level;
