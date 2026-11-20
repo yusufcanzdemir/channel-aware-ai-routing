@@ -9,6 +9,8 @@
 //        "linear*": "linear" ile başlayan her ad lineer modeldir; katsayılar
 //                   ml/models/<ad>_h3.txt'den okunur, dosya hangi öznitelikleri kullandığını
 //                   kendisi söyler (ör. linear3: bilginin yaşı + EWMA girdileri de var)
+//        "gbm*"   : Gradient Boosting (doğrusal olmayan): küçük karar ağaçlarının toplamı,
+//                   Python'da eğitilip ml/models/<ad>_h3.txt'ye düz metin olarak yazıldı
 //        "last"  : tahmin yok, son ölçüm kullanılır (karşılaştırma için)
 //        "ma"    : son 5 ölçümün ortalaması (karşılaştırma için)
 //        "ewma"  : üstel ağırlıklı hareketli ortalama (klasik, öğrenmeyen rakip)
@@ -160,6 +162,23 @@ class AiController
 
     double m_intercept = 0.0;
     std::map<std::string, double> m_coef;
+
+    // Gradient Boosting modeli (tahminci adı "gbm" ile başlıyorsa)
+    struct GbmNode
+    {
+        uint32_t feature; // karşılaştırılan öznitelik (m_gbmFeatures içindeki sıra)
+        double threshold; // x[feature] <= threshold ise sola, değilse sağa
+        uint32_t left;
+        uint32_t right;
+        bool leaf;
+        double value; // yaprak değeri (öğrenme oranı dahil)
+    };
+    bool m_gbm = false;
+    std::vector<std::string> m_gbmFeatures;
+    double m_gbmBaseline = 0.0;
+    std::vector<std::vector<GbmNode>> m_trees;
+    void LoadGbm(std::ifstream& in, const std::string& path);
+    double PredictGbm(const std::map<std::string, double>& f) const;
 
     std::vector<int> m_nextHop; // [src * n + dst], -1: rota yok
     uint64_t m_routeChanges = 0;

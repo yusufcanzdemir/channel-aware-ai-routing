@@ -145,7 +145,7 @@ main(int argc, char* argv[])
     cmd.AddValue("probeInterval", "Yoklama paketi araligi (s)", probeInterval);
     cmd.AddValue("window", "Link olcum penceresi (s)", window);
     cmd.AddValue("aiPredictor",
-                 "AI tahminci: linear* (linear, linear2, linear3, ...) | last | ma | ewma | holt | oracle",
+                 "AI tahminci: linear* | gbm* | last | ma | ewma | holt | oracle",
                  aiPredictor);
     cmd.AddValue("aiHorizon", "AI: modelin tahmin ufku (s), model dosyasini secer", aiHorizon);
     cmd.AddValue("aiModel", "Lineer model katsayi dosyasi", aiModel);
@@ -219,6 +219,12 @@ main(int argc, char* argv[])
         if (aiModel.empty() && (aiPredictor == "ewma" || aiPredictor == "holt"))
         {
             aiModel = RepoPath("ml/models/classic.txt");
+        }
+        if (aiModel.empty() && aiPredictor.rfind("gbm", 0) == 0)
+        {
+            // Gradient Boosting: ml/models/gbm3_h3.txt gibi (sadece gecikmesiz model var)
+            aiModel = RepoPath("ml/models/" + aiPredictor + "_h" + std::to_string(aiHorizon) +
+                               ".txt");
         }
         if (aiModel.empty() && aiPredictor.rfind("linear", 0) == 0)
         {

@@ -1,0 +1,36 @@
+grup,yontem,n,MAE,RMSE
+hepsi,Son ölçüm,510316,0.1249,0.1895
+hepsi,EWMA (α=0.6),510316,0.1121,0.1746
+hepsi,v2 (mevcut),510316,0.1218,0.1643
+hepsi,linear2r,510316,0.1103,0.1594
+hepsi,linear3a,510316,0.1087,0.1565
+hepsi,linear3,510316,0.1082,0.1559
+hepsi,Gradient Boosting,510316,0.1008,0.1472
+ideal,Son ölçüm,254974,0.1155,0.1747
+ideal,EWMA (α=0.6),254974,0.1023,0.1579
+ideal,v2 (mevcut),254974,0.1152,0.1526
+ideal,linear2r,254974,0.1022,0.1469
+ideal,linear3a,254974,0.1005,0.1463
+ideal,linear3,254974,0.0998,0.1454
+ideal,Gradient Boosting,254974,0.0938,0.1384
+inband,Son ölçüm,255342,0.1343,0.2031
+inband,EWMA (α=0.6),255342,0.1220,0.1899
+inband,v2 (mevcut),255342,0.1284,0.1752
+inband,linear2r,255342,0.1185,0.1709
+inband,linear3a,255342,0.1168,0.1661
+inband,linear3,255342,0.1167,0.1658
+inband,Gradient Boosting,255342,0.1079,0.1555
+inband-taze,Son ölçüm,213491,0.1161,0.1711
+inband-taze,EWMA (α=0.6),213491,0.1025,0.1543
+inband-taze,v2 (mevcut),213491,0.1146,0.1507
+inband-taze,linear2r,213491,0.1033,0.1452
+inband-taze,linear3a,213491,0.1011,0.1440
+inband-taze,linear3,213491,0.1010,0.1435
+inband-taze,Gradient Boosting,213491,0.0950,0.1372
+inband-bayat,Son ölçüm,41851,0.2273,0.3202
+inband-bayat,EWMA (α=0.6),41851,0.2215,0.3138
+inband-bayat,v2 (mevcut),41851,0.1986,0.2672
+inband-bayat,linear2r,41851,0.1957,0.2658
+inband-bayat,linear3a,41851,0.1969,0.2503
+inband-bayat,linear3,41851,0.1967,0.2501
+inband-bayat,Gradient Boosting,41851,0.1738,0.2269

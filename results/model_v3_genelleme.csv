@@ -1,0 +1,8 @@
+senaryo,Son ölçüm,EWMA,linear3 (senaryoyu gördü),linear3 (hiç görmedi)
+congestion,0.1088,0.0885,0.0827,0.0836
+degrade,0.1543,0.1470,0.1418,0.1421
+fading,0.1449,0.1343,0.1292,0.1305
+interference,0.1298,0.1165,0.1165,0.1180
+jamming,0.1241,0.1116,0.1101,0.1119
+nodefail,0.0975,0.0839,0.0800,0.0816
+none,0.0812,0.0639,0.0601,0.0618

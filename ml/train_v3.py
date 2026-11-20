@@ -20,8 +20,9 @@ Ablasyon (kazanç nereden geliyor?):
     linear2r          : v2'nin girdileri, gerçekçi veriyle yeniden eğitilmiş   -> veri etkisi
     linear3a          : + bilginin yaşı                                          -> yaş etkisi
     linear3           : + EWMA girdileri                                         -> birleştirme
-    Gradient Boosting : linear3'ün girdileriyle doğrusal olmayan model (sadece çevrimdışı):
-                        "daha karmaşık model gerekir mi?"
+    gbm3              : linear3'ün girdileriyle doğrusal olmayan model (Gradient Boosting,
+                        300 küçük ağaç): "daha karmaşık model gerekir mi?" C++ kontrolcü
+                        ağaçları ml/models/gbm3_h3.txt'den okur (--aiPredictor=gbm3)
 
 Değerlendirme (çevrimdışı, tahmin hatası):
     - seed 1-14 eğitim, 15-20 test (aynı koşunun ardışık saniyeleri birbirine çok benzer;
@@ -35,6 +36,7 @@ Kullanım:
     python ml/train_v3.py
 Çıktılar:
     ml/models/{linear2r,linear3a,linear3}_h3.{txt,json}   (C++ kontrolcü .txt'yi okur)
+    ml/models/gbm3_h3.txt                                  (ağaçlar, C++ için düz metin)
     results/model_v3_karsilastirma.csv, results/model_v3_genelleme.csv
 """
 
@@ -55,7 +57,12 @@ TRAIN_MAX_SEED = 14  # 1-14 eğitim, 15-20 test
 V2 = json.load(open(REPO / "ml/models/linear2_h3.json"))["features"]
 AGE = ["age_l0", "age_mean5", "stale_l0", "age_x_pdr0", "age_x_ewmas",
        "rev_age_l0", "rev_age_mean5"]
-EWMA = ["ewma_f", "ewma_s", "rev_ewma_f", "rev_ewma_s"]
+# Hızlı EWMA (α = 0.6, ewma_f) girdi olarak KULLANILMAZ: 0.4^10 ≈ 0.0001 olduğundan son 10
+# ölçümün neredeyse tam doğrusal birleşimi; zaten var olan pdr_l0..l9 ile aynı bilgiyi taşır ve
+# katsayıları patlatır (ilk denemede -793). Bu aynı zamanda önemli bir gözlem: son 10 ölçüme
+# bakan lineer model EWMA'yı zaten "içerir"; EWMA'yı ancak başka bilgiyle geçebilir.
+# Yavaş EWMA (α = 0.2) 10 saniyeden eskiyi de hatırlar, yeni bilgi taşır.
+EWMA = ["ewma_s", "rev_ewma_f", "rev_ewma_s"]
 VARIANTS = {
     "linear2r": V2,
     "linear3a": V2 + AGE,
@@ -119,9 +126,9 @@ def compare(train: pd.DataFrame, test: pd.DataFrame) -> tuple[dict, dict]:
         preds[name] = np.clip(lr.predict(test[cols]), 0, 1)
         models[name] = (lr, cols)
     cols = VARIANTS["linear3"]
-    gb = HistGradientBoostingRegressor(max_iter=300, random_state=0)
-    gb.fit(train[cols], train["target"])
-    preds["Gradient Boosting"] = np.clip(gb.predict(test[cols]), 0, 1)
+    gb = gb_model()
+    gb.fit(train[cols].to_numpy(), train["target"])
+    preds["Gradient Boosting"] = np.clip(gb.predict(test[cols].to_numpy()), 0, 1)
     return preds, models
 
 
@@ -139,6 +146,63 @@ def save_model(name: str, lr: LinearRegression, cols: list, check: pd.DataFrame)
     chk = check[cols].head(5).copy()
     chk["pred"] = lr.predict(chk[cols])
     chk.to_csv(out / f"{name}_h{HORIZON}_check.csv", index=False, float_format="%.10g")
+
+
+def gb_model(seed: int = 0) -> HistGradientBoostingRegressor:
+    """Doğrusal olmayan model: küçük karar ağaçlarının toplamı.
+
+    Erken durdurma kapalı (her eğitimde aynı sayıda ağaç olsun). Ağaç başına en fazla 31
+    yaprak (varsayılan); 300 ağaç. Cihazda tahmin = her ağaçta kökten yaprağa ~5 karşılaştırma.
+    """
+    return HistGradientBoostingRegressor(max_iter=300, early_stopping=False, random_state=seed)
+
+
+def save_gbm(name: str, gb: HistGradientBoostingRegressor, cols: list, check: pd.DataFrame):
+    """Ağaçları C++ kontrolcünün okuyacağı düz metne yazar.
+
+    Biçim:
+        gbm
+        features <k> <ad1> ... <adk>
+        baseline <değer>
+        trees <T>
+        tree <düğüm sayısı>
+        <öznitelik no> <eşik> <sol> <sağ> <yaprak mı (0/1)> <yaprak değeri>    (düğüm başına)
+    Tahmin = baseline + Σ (her ağaçta ulaşılan yaprağın değeri). Bir düğümde
+    x[öznitelik] <= eşik ise sola, değilse sağa gidilir. (Öğrenme oranı yaprak değerlerine
+    zaten katılmıştır; girdilerde eksik değer yoktur.)
+    """
+    trees = [t[0].nodes for t in gb._predictors]
+    path = REPO / f"ml/models/{name}_h{HORIZON}.txt"
+    with open(path, "w") as f:
+        f.write("gbm\n")
+        f.write(f"features {len(cols)} " + " ".join(cols) + "\n")
+        f.write(f"baseline {float(np.ravel(gb._baseline_prediction)[0]):.17g}\n")
+        f.write(f"trees {len(trees)}\n")
+        for nodes in trees:
+            f.write(f"tree {len(nodes)}\n")
+            for nd in nodes:
+                f.write(f"{int(nd['feature_idx'])} {float(nd['num_threshold']):.17g} "
+                        f"{int(nd['left'])} {int(nd['right'])} {int(nd['is_leaf'])} "
+                        f"{float(nd['value']):.17g}\n")
+    # Kontrol: dosyadaki ağaçlarla elle hesaplanan tahmin scikit-learn ile aynı mı?
+    x = check[cols].head(200).to_numpy()
+    manual = np.full(len(x), float(np.ravel(gb._baseline_prediction)[0]))
+    for nodes in trees:
+        for i, row in enumerate(x):
+            k = 0
+            while not nodes[k]["is_leaf"]:
+                nd = nodes[k]
+                k = nd["left"] if row[nd["feature_idx"]] <= nd["num_threshold"] else nd["right"]
+            manual[i] += nodes[k]["value"]
+    err = np.max(np.abs(manual - gb.predict(x)))
+    assert err < 1e-9, f"Agac disa aktarimi hatali: {err}"
+    chk = check[cols].head(5).copy()
+    chk["pred"] = gb.predict(chk[cols].to_numpy())
+    chk.to_csv(REPO / f"ml/models/{name}_h{HORIZON}_check.csv", index=False,
+               float_format="%.10g")
+    n_nodes = sum(len(t) for t in trees)
+    print(f"{name}: {len(trees)} agac, {n_nodes} dugum, dosya {path.stat().st_size // 1024} KB "
+          f"(elle hesap = scikit-learn, en buyuk fark {err:.1e})")
 
 
 def main():
@@ -205,7 +269,11 @@ def main():
     for name, cols in VARIANTS.items():
         lr = LinearRegression().fit(df[cols], df["target"])
         save_model(name, lr, cols, df)
-    print("\nModeller: ml/models/{linear2r,linear3a,linear3}_h3.txt")
+    # Doğrusal olmayan model (C++'ta ai:gbm3): linear3 ile aynı girdiler
+    cols = VARIANTS["linear3"]
+    gb = gb_model().fit(df[cols].to_numpy(), df["target"])
+    save_gbm("gbm3", gb, cols, df)
+    print("\nModeller: ml/models/{linear2r,linear3a,linear3,gbm3}_h3.txt")
     # En büyük katsayılar (öznitelikler farklı ölçeklerde; sadece fikir vermesi için)
     lr = LinearRegression().fit(df[VARIANTS["linear3"]], df["target"])
     coef = pd.Series(lr.coef_, index=VARIANTS["linear3"])

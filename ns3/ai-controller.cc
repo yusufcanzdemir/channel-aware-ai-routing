@@ -31,11 +31,12 @@ AiController::AiController(NodeContainer nodes,
     NS_ABORT_MSG_IF(interval == 0, "aiInterval en az 1 olmali");
     // "linear" ile başlayan her ad lineer modeldir (linear, linear2, linear3, ...)
     bool linear = predictor.rfind("linear", 0) == 0;
-    NS_ABORT_MSG_IF(!linear && predictor != "last" && predictor != "ma" &&
+    m_gbm = predictor.rfind("gbm", 0) == 0; // "gbm" ile başlayan her ad: Gradient Boosting
+    NS_ABORT_MSG_IF(!linear && !m_gbm && predictor != "last" && predictor != "ma" &&
                         predictor != "oracle" && predictor != "ewma" && predictor != "holt",
                     "Bilinmeyen aiPredictor: " << predictor);
     // Lineer modellerin katsayıları ya da klasik tahmincilerin parametreleri dosyadan
-    if (linear || predictor == "ewma" || predictor == "holt")
+    if (linear || m_gbm || predictor == "ewma" || predictor == "holt")
     {
         LoadModel(modelPath);
     }
@@ -69,8 +70,14 @@ void
 AiController::LoadModel(const std::string& path)
 {
     // Dosya biçimi: her satırda "ad katsayı"; ilk satır "intercept değer"
+    // (Gradient Boosting dosyası "gbm" satırıyla başlar, LoadGbm okur)
     std::ifstream in(path);
     NS_ABORT_MSG_IF(!in, "Model dosyasi acilamadi: " << path);
+    if (m_gbm)
+    {
+        LoadGbm(in, path);
+        return;
+    }
     std::string name;
     double value;
     while (in >> name >> value)
@@ -90,9 +97,84 @@ AiController::LoadModel(const std::string& path)
 }
 
 void
+AiController::LoadGbm(std::ifstream& in, const std::string& path)
+{
+    // Biçim (ml/train_v3.py, save_gbm):
+    //   gbm
+    //   features <k> <ad1> ... <adk>
+    //   baseline <değer>
+    //   trees <T>
+    //   tree <düğüm sayısı>, ardından düğüm başına: öznitelik eşik sol sağ yaprak değer
+    std::string word;
+    in >> word;
+    NS_ABORT_MSG_IF(word != "gbm", "GBM dosyasi degil: " << path);
+    uint32_t k = 0;
+    in >> word >> k;
+    NS_ABORT_MSG_IF(word != "features" || k == 0, "GBM dosyasi bozuk (features): " << path);
+    m_gbmFeatures.resize(k);
+    for (auto& name : m_gbmFeatures)
+    {
+        in >> name;
+    }
+    uint32_t nTrees = 0;
+    in >> word >> m_gbmBaseline;
+    NS_ABORT_MSG_IF(word != "baseline", "GBM dosyasi bozuk (baseline): " << path);
+    in >> word >> nTrees;
+    NS_ABORT_MSG_IF(word != "trees", "GBM dosyasi bozuk (trees): " << path);
+    uint32_t nNodes = 0;
+    for (uint32_t t = 0; t < nTrees; ++t)
+    {
+        uint32_t m = 0;
+        in >> word >> m;
+        NS_ABORT_MSG_IF(word != "tree" || m == 0, "GBM dosyasi bozuk (tree " << t << ")");
+        std::vector<GbmNode> nodes(m);
+        for (auto& nd : nodes)
+        {
+            int leaf = 0;
+            in >> nd.feature >> nd.threshold >> nd.left >> nd.right >> leaf >> nd.value;
+            nd.leaf = leaf != 0;
+            // Dosya bozuksa ağaçta dolaşırken dizinin dışına çıkmayalım
+            NS_ABORT_MSG_IF(!nd.leaf && (nd.feature >= k || nd.left >= m || nd.right >= m),
+                            "GBM dosyasi bozuk (dugum): " << path);
+        }
+        nNodes += m;
+        m_trees.push_back(std::move(nodes));
+    }
+    NS_ABORT_MSG_IF(!in, "GBM dosyasi eksik okundu: " << path);
+    std::cout << "AI model yuklendi: " << path << " (Gradient Boosting, " << k << " oznitelik, "
+              << nTrees << " agac, " << nNodes << " dugum)" << std::endl;
+}
+
+double
+AiController::PredictGbm(const std::map<std::string, double>& f) const
+{
+    // Öznitelikleri modelin beklediği sıraya diz
+    std::vector<double> x(m_gbmFeatures.size());
+    for (size_t i = 0; i < x.size(); ++i)
+    {
+        auto it = f.find(m_gbmFeatures[i]);
+        NS_ABORT_MSG_IF(it == f.end(), "Modelde bilinmeyen oznitelik: " << m_gbmFeatures[i]);
+        x[i] = it->second;
+    }
+    // Her ağaçta kökten (düğüm 0) yaprağa in, yaprak değerlerini topla
+    double y = m_gbmBaseline;
+    for (const auto& nodes : m_trees)
+    {
+        uint32_t k = 0;
+        while (!nodes[k].leaf)
+        {
+            k = x[nodes[k].feature] <= nodes[k].threshold ? nodes[k].left : nodes[k].right;
+        }
+        y += nodes[k].value;
+    }
+    return y;
+}
+
+void
 AiController::SetDebugCsv(const std::string& path)
 {
     m_debug.open(path);
+    m_debug.precision(17);
     m_debug << "time,tx,rx,pred";
     for (const auto& [name, c] : m_coef)
     {
@@ -106,6 +188,9 @@ AiController::SetTrainCsv(const std::string& path)
 {
     m_train.open(path);
     NS_ABORT_MSG_IF(!m_train, "Egitim dosyasi acilamadi: " << path);
+    // Tam hassasiyet: ağaç modellerinin eşikleri değerlere çok yakın olabilir; 6 basamağa
+    // yuvarlamak bazı karşılaştırmaları ters çevirir (C++ - Python doğrulamasında görüldü)
+    m_train.precision(17);
 }
 
 void
@@ -433,8 +518,18 @@ AiController::Predict(uint32_t tx, uint32_t rx)
         return sum / 5.0;
     }
 
-    // Lineer model: kesişim + Σ katsayı * öznitelik, sonra [0, 1] aralığına kırp
     std::map<std::string, double> f = Features(tx, rx);
+    if (m_gbm)
+    {
+        double y = std::clamp(PredictGbm(f), 0.0, 1.0);
+        if (m_debug.is_open() && f["pdr_mean10"] > 0.0)
+        {
+            m_debug << m_now << "," << tx << "," << rx << "," << y << "\n";
+        }
+        return y;
+    }
+
+    // Lineer model: kesişim + Σ katsayı * öznitelik, sonra [0, 1] aralığına kırp
     double y = m_intercept;
     for (const auto& [name, c] : m_coef)
     {

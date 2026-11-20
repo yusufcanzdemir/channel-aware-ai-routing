@@ -31,7 +31,9 @@ SCEN_NAMES = {"none": "Bozulmasız", "fading": "Fading", "degrade": "Kademeli bo
 METH_NAMES = {"aodv": "AODV", "olsr": "OLSR", "ai-last": "Son ölçüm", "ai-ma": "Hareketli ort.",
               "ai-ewma": "EWMA", "ai-holt": "Holt", "ai-linear": "Model v1",
               "ai-linear2": "Model v2", "ai-oracle": "Kâhin",
-              "ai-linear2-ett": "v2 + gecikme (1)", "ai-linear2-ettw20": "v2 + gecikme (0.2)"}
+              "ai-linear2-ett": "v2 + gecikme (1)", "ai-linear2-ettw20": "v2 + gecikme (0.2)",
+              "ai-linear2r": "v2 gerçekçi veri", "ai-linear3a": "v3 (+ yaş)",
+              "ai-linear3": "v3 (+ yaş + EWMA)"}
 TEXT, MUTED, GRID, AXIS = "#0b0b0b", "#52514e", "#e1e0d9", "#c3c2b7"
 
 
