@@ -22,6 +22,7 @@
 #include "ai-controller.h"
 #include "disturbance.h"
 #include "inband-control.h"
+#include "replay-logger.h"
 #include "link-monitor.h"
 #include "slow-fading-loss-model.h"
 
@@ -96,6 +97,7 @@ main(int argc, char* argv[])
     double eventDepth = 8.0;
     // Link ölçümü: dosya yolu verilirse yoklama paketleri açılır ve link CSV'si yazılır
     std::string linkCsv = "";
+    std::string replayLog = "";   // sunum sitesi için saniye saniye kayıt (JSON)
     double probeInterval = 0.1; // yoklama aralığı (s): saniyede 10 yoklama
     double window = 1.0;        // ölçüm penceresi (s)
     // AI kontrolcü ayarları (--routing=ai)
@@ -137,6 +139,7 @@ main(int argc, char* argv[])
     cmd.AddValue("fastSigma", "fading: paket basina hizli dalgalanma (dB)", fastSigma);
     cmd.AddValue("eventRate", "degrade: link basina saniyede olay olasiligi", eventRate);
     cmd.AddValue("eventDepth", "degrade: olay derinligi ust siniri (dB)", eventDepth);
+    cmd.AddValue("replayLog", "Site icin simulasyon kaydi (JSON dosyasi)", replayLog);
     cmd.AddValue("linkCsv", "Link olcum CSV dosyasi (bos = olcum kapali)", linkCsv);
     cmd.AddValue("probeInterval", "Yoklama paketi araligi (s)", probeInterval);
     cmd.AddValue("window", "Link olcum penceresi (s)", window);
@@ -355,6 +358,7 @@ main(int argc, char* argv[])
     };
 
     std::vector<std::pair<uint32_t, uint32_t>> flows;
+    std::vector<Ptr<Application>> flowApps; // kayıt için: her akışın gönderici uygulaması
     while (flows.size() < nFlows)
     {
         uint32_t src = pick->GetInteger(0, nNodes - 1);
@@ -392,6 +396,7 @@ main(int argc, char* argv[])
         onoff.SetAttribute("PacketSize", UintegerValue(packetSize));
 
         ApplicationContainer app = onoff.Install(nodes.Get(src));
+        flowApps.push_back(app.Get(0));
         // Akışlar aynı anda başlamasın diye 0.1 s aralıklarla başlatılır
         app.Start(Seconds(warmup + 0.1 * i));
         app.Stop(Seconds(trafficStop));
@@ -402,6 +407,15 @@ main(int argc, char* argv[])
     // ---------------------------------------------------------------------
     // 6. Ölçüm ve çalıştırma
     // ---------------------------------------------------------------------
+    std::unique_ptr<ReplayLogger> replay;
+    if (!replayLog.empty())
+    {
+        // Sadece izler: gönderilen/ulaşan paketler, AI'da rota tablolarından yollar
+        replay = std::make_unique<ReplayLogger>(nodes, interfaces, flows, routing == "ai");
+        replay->Connect(flowApps, kAppPort);
+        replay->Start(1.0, simTime);
+    }
+
     if (disturbance)
     {
         disturbance->Schedule(interfaces, flows);
@@ -599,6 +613,12 @@ main(int argc, char* argv[])
             << "," << nFlows << "," << txPackets << "," << rxPackets << "," << pdr << ","
             << delayMs << "," << throughputKbps << "," << jitterMs << "," << avgHops << ","
             << ctrlTxPerS << "," << reportDr << "," << updateDr << "," << ctrlDelayMs << "\n";
+    }
+
+    if (replay)
+    {
+        replay->Write(replayLog, method, scenario, seed, linkMonitor.get());
+        std::cout << "Simulasyon kaydi: " << replayLog << std::endl;
     }
 
     if (!linkCsv.empty())

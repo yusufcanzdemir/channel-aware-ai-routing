@@ -9,3 +9,6 @@ docs/rapor/
 
 # Kişisel devam notları (sohbetler arası); depoya girmez
 notlar/
+
+# Lokal sunum sitesi (site/index.html); depoya girmez
+site/
