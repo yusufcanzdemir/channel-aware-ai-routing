@@ -112,6 +112,7 @@ main(int argc, char* argv[])
     double aiTxTime = 0.0;              // ett: bir veri paketinin iletim süresi (s); 0 = hesapla
     double aiDelayWeight = 1.0;         // ett: gecikme teriminin ağırlığı
     std::string aiDebugCsv = "";        // doğrulama: öznitelik + tahmin dökümü
+    std::string aiTrainCsv = "";        // eğitim verisi: kontrolcünün gördüğü öznitelikler
     // Kontrol düzlemi: ideal (bilgi anında, ağa yük yok) | inband (ağda gerçek paketler)
     std::string controlPlane = "ideal";
     uint32_t controller = 5;      // inband: kontrolcünün çalıştığı düğüm (merkeze yakın)
@@ -144,7 +145,7 @@ main(int argc, char* argv[])
     cmd.AddValue("probeInterval", "Yoklama paketi araligi (s)", probeInterval);
     cmd.AddValue("window", "Link olcum penceresi (s)", window);
     cmd.AddValue("aiPredictor",
-                 "AI tahminci: linear | linear2 | last | ma | ewma | holt | oracle",
+                 "AI tahminci: linear* (linear, linear2, linear3, ...) | last | ma | ewma | holt | oracle",
                  aiPredictor);
     cmd.AddValue("aiHorizon", "AI: modelin tahmin ufku (s), model dosyasini secer", aiHorizon);
     cmd.AddValue("aiModel", "Lineer model katsayi dosyasi", aiModel);
@@ -155,6 +156,9 @@ main(int argc, char* argv[])
     cmd.AddValue("aiTxTime", "ett: veri paketi iletim suresi (s), 0 = otomatik", aiTxTime);
     cmd.AddValue("aiDelayWeight", "ett: gecikme teriminin agirligi", aiDelayWeight);
     cmd.AddValue("aiDebugCsv", "AI: oznitelik/tahmin dokumu (dogrulama icin)", aiDebugCsv);
+    cmd.AddValue("aiTrainCsv",
+                 "AI: kontrolcunun gordugu tum oznitelikler (model egitimi icin)",
+                 aiTrainCsv);
     cmd.AddValue("controlPlane", "AI kontrol duzlemi: ideal | inband", controlPlane);
     cmd.AddValue("controller", "inband: kontrolcu dugumu", controller);
     cmd.AddValue("collectWait", "inband: rapor toplama suresi (s)", collectWait);
@@ -448,6 +452,10 @@ main(int argc, char* argv[])
         if (!aiDebugCsv.empty())
         {
             ai->SetDebugCsv(aiDebugCsv);
+        }
+        if (!aiTrainCsv.empty())
+        {
+            ai->SetTrainCsv(aiTrainCsv);
         }
         if (aiTxTime <= 0.0)
         {

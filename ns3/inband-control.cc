@@ -172,7 +172,9 @@ InbandControl::Compute(uint32_t window)
             r.nFrames = e.nFrames;
             r.snrSum = e.snr * e.nFrames;
             r.rssiSum = e.rssi * e.nFrames;
-            r.delaySum = e.delay * r.recv; // kontrolcü ortalamayı sum / recv ile geri alır
+            // Kontrolcü ortalamayı sum / recv ile geri alır. Raporlar gecikme taşımıyorsa
+            // kontrolcü gecikmeyi bilemez: NaN (öznitelikte "bilinmiyor" olarak görünür)
+            r.delaySum = m_reportDelay ? e.delay * r.recv : std::nan("");
         }
     }
     for (uint32_t tx = 0; tx < m_n; ++tx)
@@ -186,6 +188,14 @@ InbandControl::Compute(uint32_t window)
         }
     }
 
+    // Her düğümün kontrolcüdeki son raporunun yaşı (pencere): 0 = bu pencerenin raporu geldi.
+    // Kontrolcü bunu gerçekten bilebilir: raporun başlığında pencere numarası var.
+    std::vector<uint32_t> ages(m_n);
+    for (uint32_t i = 0; i < m_n; ++i)
+    {
+        ages[i] = m_latest[i].valid ? window - m_latest[i].window : 1000; // 1000: hiç gelmedi
+    }
+    m_ai->SetReportAges(ages, m_windowEnd[window]);
     std::vector<int> routes = m_ai->ProcessWindow(records);
 
     for (uint32_t x = 0; x < m_n; ++x)

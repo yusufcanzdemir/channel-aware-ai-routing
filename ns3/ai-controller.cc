@@ -29,13 +29,13 @@ AiController::AiController(NodeContainer nodes,
       m_interval(interval)
 {
     NS_ABORT_MSG_IF(interval == 0, "aiInterval en az 1 olmali");
-    NS_ABORT_MSG_IF(predictor != "linear" && predictor != "linear2" && predictor != "last" &&
-                        predictor != "ma" && predictor != "oracle" && predictor != "ewma" &&
-                        predictor != "holt",
+    // "linear" ile başlayan her ad lineer modeldir (linear, linear2, linear3, ...)
+    bool linear = predictor.rfind("linear", 0) == 0;
+    NS_ABORT_MSG_IF(!linear && predictor != "last" && predictor != "ma" &&
+                        predictor != "oracle" && predictor != "ewma" && predictor != "holt",
                     "Bilinmeyen aiPredictor: " << predictor);
     // Lineer modellerin katsayıları ya da klasik tahmincilerin parametreleri dosyadan
-    if (predictor == "linear" || predictor == "linear2" || predictor == "ewma" ||
-        predictor == "holt")
+    if (linear || predictor == "ewma" || predictor == "holt")
     {
         LoadModel(modelPath);
     }
@@ -54,6 +54,10 @@ AiController::AiController(NodeContainer nodes,
     m_snrHist.resize(m_n * m_n);
     m_rssiHist.resize(m_n * m_n);
     m_delayHist.resize(m_n * m_n);
+    m_ageHist.resize(m_n);
+    m_pendingAges.assign(m_n, 0);
+    m_ewmaFast.assign(m_n * m_n, 0.0);
+    m_ewmaSlow.assign(m_n * m_n, 0.0);
     m_ewma.assign(m_n * m_n, 0.0);
     m_level.assign(m_n * m_n, 0.0);
     m_trend.assign(m_n * m_n, 0.0);
@@ -95,6 +99,23 @@ AiController::SetDebugCsv(const std::string& path)
         m_debug << "," << name;
     }
     m_debug << "\n";
+}
+
+void
+AiController::SetTrainCsv(const std::string& path)
+{
+    m_train.open(path);
+    NS_ABORT_MSG_IF(!m_train, "Egitim dosyasi acilamadi: " << path);
+}
+
+void
+AiController::SetReportAges(const std::vector<uint32_t>& ageByNode, double windowEnd)
+{
+    for (uint32_t i = 0; i < m_n; ++i)
+    {
+        m_pendingAges[i] = std::min(ageByNode[i], kAgeCap);
+    }
+    m_windowEnd = windowEnd;
 }
 
 void
@@ -200,7 +221,9 @@ AiController::ProcessWindow(const std::vector<LinkMonitor::Record>& window)
 void
 AiController::PushHistory(const std::vector<LinkMonitor::Record>& window)
 {
-    m_now = Simulator::Now().GetSeconds();
+    // Gerçekçi düzlemde hesap pencere bitiminden biraz sonra yapılır; kayıtlarda pencerenin
+    // kendi bitiş zamanı kullanılır (link CSV'deki zamanla eşleşsin diye)
+    m_now = m_windowEnd >= 0 ? m_windowEnd : Simulator::Now().GetSeconds();
     for (const auto& r : window)
     {
         uint32_t idx = r.tx * m_n + r.rx;
@@ -213,20 +236,28 @@ AiController::PushHistory(const std::vector<LinkMonitor::Record>& window)
             m_ewma[idx] = pdr;
             m_level[idx] = pdr;
             m_trend[idx] = 0.0;
+            m_ewmaFast[idx] = pdr;
+            m_ewmaSlow[idx] = pdr;
             m_started[idx] = true;
         }
-        else if (m_predictor == "ewma")
+        else
         {
-            double a = m_coef.at("ewma_alpha");
-            m_ewma[idx] = a * pdr + (1 - a) * m_ewma[idx];
-        }
-        else if (m_predictor == "holt")
-        {
-            double a = m_coef.at("holt_alpha");
-            double b = m_coef.at("holt_beta");
-            double prev = m_level[idx];
-            m_level[idx] = a * pdr + (1 - a) * (m_level[idx] + m_trend[idx]);
-            m_trend[idx] = b * (m_level[idx] - prev) + (1 - b) * m_trend[idx];
+            // Öznitelik EWMA'ları her yöntemde güncellenir (eğitim verisi için de gerekli)
+            m_ewmaFast[idx] = kEwmaFast * pdr + (1 - kEwmaFast) * m_ewmaFast[idx];
+            m_ewmaSlow[idx] = kEwmaSlow * pdr + (1 - kEwmaSlow) * m_ewmaSlow[idx];
+            if (m_predictor == "ewma")
+            {
+                double a = m_coef.at("ewma_alpha");
+                m_ewma[idx] = a * pdr + (1 - a) * m_ewma[idx];
+            }
+            else if (m_predictor == "holt")
+            {
+                double a = m_coef.at("holt_alpha");
+                double b = m_coef.at("holt_beta");
+                double prev = m_level[idx];
+                m_level[idx] = a * pdr + (1 - a) * (m_level[idx] + m_trend[idx]);
+                m_trend[idx] = b * (m_level[idx] - prev) + (1 - b) * m_trend[idx];
+            }
         }
         m_pdrHist[idx].push_front(pdr);
         m_snrHist[idx].push_front(snr);
@@ -240,6 +271,18 @@ AiController::PushHistory(const std::vector<LinkMonitor::Record>& window)
             m_delayHist[idx].pop_back();
         }
     }
+    // Düğüm başına rapor yaşı (ideal düzlemde hep 0). Bir sonraki pencere için sıfırlanır:
+    // gerçekçi düzlem her pencerede SetReportAges ile yeniden verir.
+    for (uint32_t i = 0; i < m_n; ++i)
+    {
+        m_ageHist[i].push_front(m_pendingAges[i]);
+        if (m_ageHist[i].size() > kHistory)
+        {
+            m_ageHist[i].pop_back();
+        }
+    }
+    std::fill(m_pendingAges.begin(), m_pendingAges.end(), 0);
+    m_windowEnd = -1.0;
 }
 
 std::map<std::string, double>
@@ -256,7 +299,12 @@ AiController::Features(uint32_t tx, uint32_t rx) const
                              "pdr_trend",
                              "mar_l0",
                              "mar_mean5",
-                             "mar_slope"})
+                             "mar_slope",
+                             // v3: ters linkin bilgi yaşı (tx'in raporu) ve EWMA'ları
+                             "age_l0",
+                             "age_mean5",
+                             "ewma_f",
+                             "ewma_s"})
     {
         f[std::string("rev_") + name] = r[name];
     }
@@ -308,6 +356,36 @@ AiController::OwnFeatures(uint32_t idx) const
     f["mar_max5"] = maxMar;
     // Son 5 noktanın en küçük kareler eğimi (dB/s); mar[0] en yeni
     f["mar_slope"] = (2 * mar[0] + mar[1] - mar[3] - 2 * mar[4]) / 10.0;
+
+    // --- v3 öznitelikleri ---
+    // Bilginin yaşı: bu linki ölçen düğümün (rx) kontrolcüdeki son raporu kaç pencere eski.
+    // 0 = taze. Rapor gelmeyince kontrolcü eski raporu tekrar kullanır; yaş bunu belli eder.
+    const auto& a = m_ageHist[idx % m_n];
+    double age0 = a.empty() ? 0.0 : a[0];
+    double sumAge = 0.0;
+    size_t nAge = std::min<size_t>(a.size(), 5);
+    for (size_t k = 0; k < nAge; ++k)
+    {
+        sumAge += a[k];
+    }
+    f["age_l0"] = age0;
+    f["age_mean5"] = nAge > 0 ? sumAge / nAge : 0.0; // son 5 pencerede ortalama bayatlık
+    f["stale_l0"] = age0 > 0 ? 1.0 : 0.0;
+    // EWMA'lar: hızlı (α = 0.6) ve yavaş (α = 0.2); klasik yöntemin bilgisi modele girdi olur
+    f["ewma_f"] = m_ewmaFast[idx];
+    f["ewma_s"] = m_ewmaSlow[idx];
+    // Lineer model çarpım yapamaz: "bilgi bayatsa son ölçüme daha az güven" ilişkisini
+    // öğrenebilmesi için yaş ile çarpılmış girdiler
+    f["age_x_pdr0"] = age0 * p[0];
+    f["age_x_ewmas"] = age0 * m_ewmaSlow[idx];
+    // Link gecikmesi (ms), son 3 pencere; raporlar gecikme taşımıyorsa bilinmez (0 + bayrak)
+    bool dKnown = false;
+    for (size_t k = 0; k < m_delayHist[idx].size() && k < 3; ++k)
+    {
+        dKnown = dKnown || !std::isnan(m_delayHist[idx][k]);
+    }
+    f["dly_ms"] = 1000.0 * RecentDelay(idx);
+    f["dly_known"] = dKnown ? 1.0 : 0.0;
     return f;
 }
 
@@ -396,6 +474,10 @@ AiController::ComputeRoutes()
             }
         }
     }
+    if (m_train.is_open())
+    {
+        WriteTrainRows();
+    }
     std::vector<double> cost(m_n * m_n, inf);
     for (uint32_t u = 0; u < m_n; ++u)
     {
@@ -456,6 +538,44 @@ AiController::ComputeRoutes()
     }
 
     return newNextHop;
+}
+
+void
+AiController::WriteTrainRows()
+{
+    // Sadece geçmişi dolmuş ve kontrolcünün en az bir kez duyduğu (gidiş ya da dönüş) linkler
+    for (uint32_t tx = 0; tx < m_n; ++tx)
+    {
+        for (uint32_t rx = 0; rx < m_n; ++rx)
+        {
+            if (tx == rx || m_pdrHist[tx * m_n + rx].size() < kHistory ||
+                m_pdrHist[rx * m_n + tx].size() < kHistory)
+            {
+                continue;
+            }
+            std::map<std::string, double> f = Features(tx, rx);
+            if (f["pdr_mean10"] <= 0.0 && f["rev_pdr_mean10"] <= 0.0)
+            {
+                continue;
+            }
+            if (!m_trainHeader)
+            {
+                m_train << "time,tx,rx";
+                for (const auto& [name, v] : f)
+                {
+                    m_train << "," << name;
+                }
+                m_train << "\n";
+                m_trainHeader = true;
+            }
+            m_train << m_now << "," << tx << "," << rx;
+            for (const auto& [name, v] : f)
+            {
+                m_train << "," << v;
+            }
+            m_train << "\n";
+        }
+    }
 }
 
 void

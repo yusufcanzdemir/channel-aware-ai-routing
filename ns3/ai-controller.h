@@ -6,6 +6,9 @@
 //        "linear": Python'da eğitilmiş lineer model (ml/models/linear_h3.txt)
 //        "linear2": aynı, ek öznitelikler: sinyal payı (RSSI - algılama eşiği) ve ters yön
 //                   linkinin ölçümleri (ml/models/linear2_h3.txt)
+//        "linear*": "linear" ile başlayan her ad lineer modeldir; katsayılar
+//                   ml/models/<ad>_h3.txt'den okunur, dosya hangi öznitelikleri kullandığını
+//                   kendisi söyler (ör. linear3: bilginin yaşı + EWMA girdileri de var)
 //        "last"  : tahmin yok, son ölçüm kullanılır (karşılaştırma için)
 //        "ma"    : son 5 ölçümün ortalaması (karşılaştırma için)
 //        "ewma"  : üstel ağırlıklı hareketli ortalama (klasik, öğrenmeyen rakip)
@@ -65,6 +68,10 @@ class AiController
     // Gerçekçi kontrol düzlemi (InbandControl) için: ölçümleri geçmişe ekler ve yeni
     // rota tablosunu [src * n + dst] -> sonraki sekme olarak döndürür, YAZMAZ
     std::vector<int> ProcessWindow(const std::vector<LinkMonitor::Record>& window);
+    // Gerçekçi düzlemde bir sonraki ProcessWindow'dan önce çağrılır: her düğümün
+    // kontrolcüdeki son raporunun yaşı (pencere; hiç rapor yoksa kAgeCap) ve ölçüm
+    // penceresinin bitiş zamanı. İdeal düzlemde yaşlar hep 0'dır.
+    void SetReportAges(const std::vector<uint32_t>& ageByNode, double windowEnd);
     // Tek bir düğümün rota satırını (hedef -> sonraki sekme, -1: yok) tablosuna yazar.
     // Gerçekçi modda rota güncellemesi paketi düğüme ulaştığında çağrılır.
     void InstallNodeRoutes(uint32_t src, const std::vector<int>& row);
@@ -76,6 +83,12 @@ class AiController
 
     // Doğrulama için: her pencerede her linkin öznitelikleri ve tahmini bu dosyaya yazılır
     void SetDebugCsv(const std::string& path);
+
+    // Eğitim verisi için: her rota hesabında, kontrolcünün GÖRDÜĞÜ veriden hesaplanan
+    // bütün öznitelikler (modelin kullanmadıkları dahil) bu dosyaya yazılır. Python bunu
+    // linkin gerçek gelecekteki teslim oranıyla (link CSV) eşleyip modeli eğitir. Böylece
+    // eğitimdeki girdiler simülasyondakilerle birebir aynı olur (bayat/eksik bilgi dahil).
+    void SetTrainCsv(const std::string& path);
 
     // Link maliyeti türü:
     //   "etx": 1 / (p_gidiş · p_dönüş)                    (beklenen iletim sayısı, varsayılan)
@@ -93,6 +106,9 @@ class AiController
     static const uint32_t kHistory = 10; // modelin baktığı geçmiş pencere sayısı
     static constexpr double kDetectDbm = -82.0;    // NS-3 algılama eşiği (dBm)
     static constexpr double kMarginUnknown = -3.0; // çerçeve duyulmadıysa varsayılan pay (dB)
+    static constexpr uint32_t kAgeCap = 10;          // rapor yaşı üst sınırı (pencere)
+    static constexpr double kEwmaFast = 0.6;       // öznitelik EWMA'ları (ml/models/classic.txt
+    static constexpr double kEwmaSlow = 0.2;       // ile aynı hızlı α ve daha yavaş bir α)
 
     void LoadModel(const std::string& path);
     void PushHistory(const std::vector<LinkMonitor::Record>& window);
@@ -128,6 +144,14 @@ class AiController
     std::vector<std::deque<double>> m_snrHist;  // SNR (dB), bilinmiyorsa NaN
     std::vector<std::deque<double>> m_rssiHist; // alınan güç (dBm), bilinmiyorsa NaN
     std::vector<std::deque<double>> m_delayHist; // yoklama gecikmesi (s), bilinmiyorsa NaN
+    // Düğüm başına: kontrolcüdeki raporunun yaşı (pencere), ön taraf en yeni.
+    // tx -> rx linkinin ölçümünü rx raporlar, yani o linkin bilgi yaşı = rx'in rapor yaşı.
+    std::vector<std::deque<double>> m_ageHist;
+    std::vector<uint32_t> m_pendingAges; // bir sonraki pencere için SetReportAges'ten
+    double m_windowEnd = -1.0;           // < 0: şimdiki zaman kullanılır (ideal düzlem)
+    // Öznitelik olarak kullanılan EWMA'lar; tahminci ne olursa olsun her pencere güncellenir
+    std::vector<double> m_ewmaFast;
+    std::vector<double> m_ewmaSlow;
     // Klasik tahmincilerin link başına durumu
     std::vector<double> m_ewma;
     std::vector<double> m_level;
@@ -142,6 +166,9 @@ class AiController
     double m_now = 0.0;
 
     std::ofstream m_debug;
+    std::ofstream m_train;
+    bool m_trainHeader = false;
+    void WriteTrainRows();
 
     // Kâhin: rotaların geçerli olacağı dönemde gerçek beklenen teslim oranı
     double OraclePdr(uint32_t tx, uint32_t rx) const;
