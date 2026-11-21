@@ -58,6 +58,7 @@ class InbandControl
     struct Stats
     {
         uint64_t reportsSent = 0;     // kontrolcü dışındaki düğümlerin ürettiği rapor
+        uint64_t reportsSuppressed = 0; // "değişmedi" diye gönderilmeyen rapor (reportOnChange)
         uint64_t reportsFresh = 0;    // hesap anında kontrolcüde olan güncel rapor
         uint64_t updatesSent = 0;     // kontrolcünün diğer düğümlere ürettiği güncelleme
         uint64_t updatesApplied = 0;  // düğümlere ulaşıp uygulanan güncelleme
@@ -73,6 +74,12 @@ class InbandControl
     // Raporlara link gecikmesini de ekle (link başına +2 bayt). Sadece gecikmeyi kullanan
     // maliyet (--aiCost=ett) için açılır; diğer yöntemlerin rapor boyutu değişmez.
     void SetReportDelay(bool on);
+
+    // Ölçüm yükünü azaltmak için: düğüm raporunu yalnızca bir linkin teslim oranı en az
+    // `threshold` kadar değiştiğinde ya da duyduğu komşular değiştiğinde gönderir; kayıplara
+    // karşı yine de her `refreshEvery` pencerede bir gönderir. Gönderilmeyen pencerede
+    // kontrolcü son raporu kullanmaya devam eder (rapor yaşı artar).
+    void SetReportOnChange(bool on, double threshold);
 
     // Kontrol paketlerinin UDP portu (FlowMonitor'da veri trafiğinden ayırmak için)
     static const uint16_t kPort = 7000;
@@ -129,6 +136,13 @@ class InbandControl
     double m_bootstrapEnd;
     uint32_t m_refreshEvery;
     bool m_reportDelay = false;
+    bool m_reportOnChange = false;
+    double m_changeThreshold = 0.2;
+    // Düğüm başına son GÖNDERİLEN rapor (gönderen -> alınan yoklama sayısı) ve penceresi
+    std::vector<std::map<uint8_t, uint8_t>> m_lastReported;
+    std::vector<uint32_t> m_lastReportWindow;
+    // Rapor gönderilmeli mi? (reportOnChange kapalıysa hep evet)
+    bool ShouldReport(uint32_t node, const std::vector<ReportEntry>& entries);
 
     std::vector<Ptr<Socket>> m_sockets;
     std::vector<Ipv4Address> m_addr;

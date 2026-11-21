@@ -20,6 +20,7 @@
 #include "ns3/wifi-module.h"
 
 #include "ai-controller.h"
+#include "airtime-meter.h"
 #include "disturbance.h"
 #include "inband-control.h"
 #include "replay-logger.h"
@@ -29,6 +30,7 @@
 #include <cmath>
 #include <fstream>
 #include <memory>
+#include <set>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -113,6 +115,11 @@ main(int argc, char* argv[])
     double aiDelayWeight = 1.0;         // ett: gecikme teriminin ağırlığı
     std::string aiDebugCsv = "";        // doğrulama: öznitelik + tahmin dökümü
     std::string aiTrainCsv = "";        // eğitim verisi: kontrolcünün gördüğü öznitelikler
+    // inband: rapor yalnızca linkler belirgin değişince (ya da her `refresh` pencerede bir)
+    bool reportOnChange = false;
+    // Teslim oranında bu kadar değişim "belirgin" sayılır. 0.3: tek seed denemesinde sakin ağda
+    // raporların ~%67'sini, kademeli bozulmada ~%25'ini bastırdı (0.2: sadece ~%10)
+    double changeThreshold = 0.3;
     // Kontrol düzlemi: ideal (bilgi anında, ağa yük yok) | inband (ağda gerçek paketler)
     std::string controlPlane = "ideal";
     uint32_t controller = 5;      // inband: kontrolcünün çalıştığı düğüm (merkeze yakın)
@@ -156,6 +163,10 @@ main(int argc, char* argv[])
     cmd.AddValue("aiTxTime", "ett: veri paketi iletim suresi (s), 0 = otomatik", aiTxTime);
     cmd.AddValue("aiDelayWeight", "ett: gecikme teriminin agirligi", aiDelayWeight);
     cmd.AddValue("aiDebugCsv", "AI: oznitelik/tahmin dokumu (dogrulama icin)", aiDebugCsv);
+    cmd.AddValue("reportOnChange",
+                 "inband: rapor sadece linkler degisince (ve her refresh pencerede bir)",
+                 reportOnChange);
+    cmd.AddValue("changeThreshold", "reportOnChange: belirgin degisim esigi", changeThreshold);
     cmd.AddValue("aiTrainCsv",
                  "AI: kontrolcunun gordugu tum oznitelikler (model egitimi icin)",
                  aiTrainCsv);
@@ -205,6 +216,16 @@ main(int argc, char* argv[])
                 method += "w" + std::to_string(int(std::lround(aiDelayWeight * 100)));
             }
         }
+        // Ölçüm yükü ayarları varsayılan değilse: saniyedeki yoklama sayısı ve
+        // "sadece değişince rapor" (ai-linear3-p5-roc-ib gibi)
+        if (std::abs(probeInterval - 0.1) > 1e-9)
+        {
+            method += "-p" + std::to_string(int(std::lround(1.0 / probeInterval)));
+        }
+        if (reportOnChange)
+        {
+            method += "-roc";
+        }
         if (controlPlane == "inband")
         {
             method += "-ib"; // gerçekçi kontrol düzlemi
@@ -234,6 +255,12 @@ main(int argc, char* argv[])
             aiModel = RepoPath("ml/models/" + aiPredictor +
                                (d == 0 ? "" : "_o" + std::to_string(d)) + h);
         }
+    }
+    else if (linkCsv.empty())
+    {
+        // AODV/OLSR yoklamasız (doğal hali): ölçüm yükü taşımaz. Yoklamalı koşular eski adını
+        // (aodv, olsr) korur.
+        method += "-np";
     }
 
     // Aynı seed ile her zaman aynı sonucu almak için
@@ -386,13 +413,18 @@ main(int argc, char* argv[])
 
     PacketSinkHelper sinkHelper("ns3::UdpSocketFactory",
                                 InetSocketAddress(Ipv4Address::GetAny(), kAppPort));
+    std::set<uint32_t> sinkNodes; // alıcı kurulmuş düğümler
     for (uint32_t i = 0; i < flows.size(); ++i)
     {
         uint32_t src = flows[i].first;
         uint32_t dst = flows[i].second;
 
-        // Hedefte gelen paketleri karşılayan alıcı (aynı düğüme iki kez kurulmasın)
-        if (nodes.Get(dst)->GetNApplications() == 0)
+        // Hedefte gelen paketleri karşılayan alıcı (aynı düğüme iki kez kurulmasın).
+        // Eski sürüm "düğümde hiç uygulama yoksa" diye bakıyordu: hedef aynı zamanda önceki
+        // bir akışın KAYNAĞIYSA alıcı kurulmuyor, her gelen paket kaynağa bir ICMP "port
+        // ulaşılamıyor" mesajı döndürüyordu (kanal süresinin %2-5'i). Kanal süresi ölçümüyle
+        // bulundu; düzeltmeden sonra bütün deneyler yeniden koşturuldu.
+        if (sinkNodes.insert(dst).second)
         {
             sinkHelper.Install(nodes.Get(dst)).Start(Seconds(0.0));
         }
@@ -417,6 +449,10 @@ main(int argc, char* argv[])
     // ---------------------------------------------------------------------
     // 6. Ölçüm ve çalıştırma
     // ---------------------------------------------------------------------
+    // Kanal süresi: trafik süresince her iletim türünün havada kaldığı toplam süre (sadece izler)
+    AirtimeMeter airtime(devices, kAppPort, LinkMonitor::kProbeProtocol);
+    airtime.SetInterval(warmup, trafficStop);
+
     std::unique_ptr<ReplayLogger> replay;
     if (!replayLog.empty())
     {
@@ -506,6 +542,7 @@ main(int argc, char* argv[])
                                                      bootstrap,
                                                      refresh);
             inband->SetReportDelay(aiCost == "ett");
+            inband->SetReportOnChange(reportOnChange, changeThreshold);
             InbandControl* ibPtr = inband.get();
             linkMonitor->SetWindowCallback(
                 [ibPtr](const std::vector<LinkMonitor::Record>& w) { ibPtr->OnWindow(w); });
@@ -604,9 +641,25 @@ main(int argc, char* argv[])
         std::cout << "  Kontrol paketi/s : " << ctrlTxPerS << " (flood " << cs.floodTx
                   << ", unicast iletim " << ctrlLinkTx << ")" << std::endl;
         std::cout << "  Rapor teslim     : " << 100.0 * reportDr << " %" << std::endl;
+        if (reportOnChange)
+        {
+            std::cout << "  Bastirilan rapor : " << cs.reportsSuppressed << " (gonderilen "
+                      << cs.reportsSent << ")" << std::endl;
+        }
         std::cout << "  Guncelleme teslim: " << 100.0 * updateDr << " %" << std::endl;
         std::cout << "  Kontrol gecikmesi: " << ctrlDelayMs << " ms" << std::endl;
     }
+
+    // Kanal süresi: türe göre, trafik süresinin yüzdesi olarak (düğümlerin toplam gönderim
+    // süresi / geçen süre). Uzamsal yeniden kullanım yüzünden toplam %100'ü geçebilir.
+    std::vector<double> airPct(AirtimeMeter::N_KINDS);
+    std::cout << "  Kanal suresi (%) :";
+    for (int k = 0; k < AirtimeMeter::N_KINDS; ++k)
+    {
+        airPct[k] = 100.0 * airtime.GetSeconds(AirtimeMeter::Kind(k)) / trafficDuration;
+        std::cout << " " << AirtimeMeter::Name(AirtimeMeter::Kind(k)) << " " << airPct[k];
+    }
+    std::cout << std::endl;
 
     // CSV'ye bir satır ekle; dosya yoksa önce başlık satırını yaz
     bool newFile = !std::ifstream(csvPath).good();
@@ -621,12 +674,22 @@ main(int argc, char* argv[])
         {
             csv << "routing,scenario,seed,nodes,distance,flows,tx_packets,rx_packets,"
                    "pdr,delay_ms,throughput_kbps,jitter_ms,avg_hops,"
-                   "ctrl_tx_per_s,report_dr,update_dr,ctrl_delay_ms\n";
+                   "ctrl_tx_per_s,report_dr,update_dr,ctrl_delay_ms";
+            for (int k = 0; k < AirtimeMeter::N_KINDS; ++k)
+            {
+                csv << ",air_" << AirtimeMeter::Name(AirtimeMeter::Kind(k)) << "_pct";
+            }
+            csv << "\n";
         }
         csv << method << "," << scenario << "," << seed << "," << nNodes << "," << distance
             << "," << nFlows << "," << txPackets << "," << rxPackets << "," << pdr << ","
             << delayMs << "," << throughputKbps << "," << jitterMs << "," << avgHops << ","
-            << ctrlTxPerS << "," << reportDr << "," << updateDr << "," << ctrlDelayMs << "\n";
+            << ctrlTxPerS << "," << reportDr << "," << updateDr << "," << ctrlDelayMs;
+        for (double a : airPct)
+        {
+            csv << "," << a;
+        }
+        csv << "\n";
     }
 
     if (replay)

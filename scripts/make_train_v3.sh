@@ -16,7 +16,10 @@
 set -e
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 NS3_DIR="${NS3_DIR:-$HOME/Documents/_projects/ns-allinone-3.44/ns-3.44}"
-OUT="$REPO_DIR/data/train_v3"
+# TAG + EXTRA: başka bir ölçüm ayarı için veri (ör. TAG=_p5 EXTRA="--probeInterval=0.2")
+TAG="${TAG:-}"
+EXTRA="${EXTRA:-}"
+OUT="$REPO_DIR/data/train_v3$TAG"
 SCENARIOS="${SCENARIOS:-none fading degrade interference jamming nodefail congestion}"
 PLANES="${PLANES:-ideal inband}"
 SEEDS="${SEEDS:-20}"   # seed 1..SEEDS; değerlendirme seed'leri (101+) ile çakışmaz
@@ -31,7 +34,7 @@ if [[ "$1" == "--one" ]]; then
     base="$OUT/${sc}__${pl}__${seed}"
     rm -f "$base.feat.csv" "$base.link.csv"
     if ./ns3 run --no-build "ai_routing --routing=ai --aiPredictor=last --controlPlane=$pl \
-        --scenario=$sc --seed=$seed --csv=/dev/null \
+        --scenario=$sc --seed=$seed --csv=/dev/null $EXTRA \
         --aiTrainCsv=$base.feat.csv --linkCsv=$base.link.csv" > /dev/null 2>&1; then
         touch "$base.done" # yarım kalan koşular bir sonraki çalıştırmada yenilenir
     else

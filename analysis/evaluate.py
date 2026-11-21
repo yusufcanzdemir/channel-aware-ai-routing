@@ -28,7 +28,8 @@ FIG = REPO / "results/figures"
 SCEN_NAMES = {"none": "Bozulmasız", "fading": "Fading", "degrade": "Kademeli bozulma",
               "interference": "Girişim", "jamming": "Jamming", "nodefail": "Düğüm arızası",
               "congestion": "Tıkanıklık"}
-METH_NAMES = {"aodv": "AODV", "olsr": "OLSR", "ai-last": "Son ölçüm", "ai-ma": "Hareketli ort.",
+METH_NAMES = {"aodv": "AODV", "olsr": "OLSR", "aodv-np": "AODV (yoklamasız)",
+              "olsr-np": "OLSR (yoklamasız)", "ai-last": "Son ölçüm", "ai-ma": "Hareketli ort.",
               "ai-ewma": "EWMA", "ai-holt": "Holt", "ai-linear": "Model v1",
               "ai-linear2": "Model v2", "ai-oracle": "Kâhin",
               "ai-linear2-ett": "v2 + gecikme (1)", "ai-linear2-ettw20": "v2 + gecikme (0.2)",

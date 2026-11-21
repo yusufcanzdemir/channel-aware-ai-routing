@@ -21,11 +21,15 @@ EVAL_SEEDS="${EVAL_SEEDS:-30}"
 #   last   = son ölçüm (tahmin yok)         ewma, holt = klasik (öğrenmeyen) tahmin
 #   linear2 = öğrenilmiş model v2           oracle = gerçek geleceği bilen kâhin (üst sınır)
 #   ai:<tahminci>:ett[:ağırlık] = gecikmeli maliyet (ETT), gecikme terimi ağırlıklı (varsayılan 1)
+#     (ETT, sink hatası düzeltmesinden sonra yeniden koşturulmadı: olumsuz sonuç netti; eski
+#      sonuçlar data/eval/raw_eski/ altında)
+#   aodv+noprobe, olsr+noprobe = yoklamasız AODV/OLSR (doğal hali, ölçüm yükü yok)
+#   <yöntem>+anahtar=değer = simülasyona ek parametre (ör. +probeInterval=0.2), bkz. olcum_yuku.sh
 #   v3 ablasyonu (gerçekçi veriyle eğitildi, ml/train_v3.py):
 #     linear2r = v2 girdileri   linear3a = + bilginin yaşı   linear3 = + yaş + EWMA girdileri
 #     gbm3 = linear3'ün girdileriyle Gradient Boosting (300 küçük karar ağacı, doğrusal olmayan)
-METHODS="${METHODS:-aodv olsr ai:last ai:ewma ai:holt ai:linear2 ai:oracle ai:linear2:ett \
-ai:linear2:ett:0.2 ai:linear2r ai:linear3a ai:linear3 ai:gbm3}"
+METHODS="${METHODS:-aodv olsr aodv+noprobe olsr+noprobe ai:last ai:ewma ai:holt ai:linear2 \
+ai:oracle ai:linear2r ai:linear3a ai:linear3 ai:gbm3}"
 
 # AI yöntemleri için kontrol düzlemleri: ideal (bilgi anında) ve inband (ağda gerçek paket)
 PLANES="${PLANES:-ideal inband}"

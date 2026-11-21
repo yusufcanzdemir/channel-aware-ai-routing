@@ -34,12 +34,15 @@ Asıl ölçüt yine simülasyondaki teslim oranıdır (scripts/pipeline.sh); bu 
 
 Kullanım:
     python ml/train_v3.py
+    python ml/train_v3.py --tag _p5   # başka ölçüm ayarının verisi (data/train_v3_p5) ile
+                                      # sadece linear3 eğitilir -> ml/models/linear3_p5_h3.txt
 Çıktılar:
     ml/models/{linear2r,linear3a,linear3}_h3.{txt,json}   (C++ kontrolcü .txt'yi okur)
     ml/models/gbm3_h3.txt                                  (ağaçlar, C++ için düz metin)
     results/model_v3_karsilastirma.csv, results/model_v3_genelleme.csv
 """
 
+import argparse
 import json
 from pathlib import Path
 
@@ -94,11 +97,11 @@ def load_run(feat_path: Path) -> pd.DataFrame:
     return df
 
 
-def load_all() -> pd.DataFrame:
-    files = sorted(DATA.glob("*.feat.csv"))
+def load_all(data: Path = DATA) -> pd.DataFrame:
+    files = sorted(data.glob("*.feat.csv"))
     files = [f for f in files if Path(str(f).replace(".feat.csv", ".done")).exists()]
     if not files:
-        raise SystemExit(f"Veri yok: önce ./scripts/make_train_v3.sh çalıştır ({DATA})")
+        raise SystemExit(f"Veri yok: önce ./scripts/make_train_v3.sh çalıştır ({data})")
     return pd.concat([load_run(f) for f in files], ignore_index=True)
 
 
@@ -205,7 +208,36 @@ def save_gbm(name: str, gb: HistGradientBoostingRegressor, cols: list, check: pd
           f"(elle hesap = scikit-learn, en buyuk fark {err:.1e})")
 
 
+def main_tag(tag: str):
+    """Başka bir ölçüm ayarı (ör. saniyede 5 yoklama) için sadece linear3'ü eğitir.
+
+    Gerçek bir kurulumda da model, kullanılacağı ayarın verisiyle eğitilirdi: saniyede 2
+    yoklamada teslim oranı yalnızca 0 / 0.5 / 1 olabilir; "sadece değişince rapor" açıkken
+    bilginin yaşı farklı bir anlam taşır (rapor gelmemesi "değişmedi" demek olabilir).
+    """
+    df = load_all(REPO / "data" / f"train_v3{tag}")
+    train = df[df["seed"] <= TRAIN_MAX_SEED]
+    test = df[df["seed"] > TRAIN_MAX_SEED]
+    cols = VARIANTS["linear3"]
+    lr = LinearRegression().fit(train[cols], train["target"])
+    y = test["target"].to_numpy()
+    print(f"{tag}: {df[['scenario', 'plane', 'seed']].drop_duplicates().shape[0]} koşu; "
+          f"bayat bilgi oranı {(df.age_l0 > 0).mean():.1%}; test MAE: "
+          f"son ölçüm {errors(y, test['pdr_l0'].to_numpy())['MAE']:.4f}, "
+          f"EWMA {errors(y, test['ewma_f'].to_numpy())['MAE']:.4f}, "
+          f"linear3 {errors(y, np.clip(lr.predict(test[cols]), 0, 1))['MAE']:.4f}")
+    lr = LinearRegression().fit(df[cols], df["target"])
+    save_model(f"linear3{tag}", lr, cols, df)
+    print(f"Model: ml/models/linear3{tag}_h{HORIZON}.txt")
+
+
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tag", default="", help="ölçüm ayarı etiketi (ör. _p5); boş = ana deney")
+    args = ap.parse_args()
+    if args.tag:
+        main_tag(args.tag)
+        return
     df = load_all()
     train = df[df["seed"] <= TRAIN_MAX_SEED]
     test = df[df["seed"] > TRAIN_MAX_SEED]

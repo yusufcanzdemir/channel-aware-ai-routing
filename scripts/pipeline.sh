@@ -72,17 +72,32 @@ if has deney; then
             fi
             for pl in $planes; do
                 for seed in $(seq "$EVAL_FIRST_SEED" "$last_seed"); do
-                    out="$RAW/${sc}__${m//:/-}__${pl}__${seed}.csv"
+                    # Dosya adı: ":" -> "-", "+" -> "_", "=" atılır
+                    # (ai:linear3_p5+probeInterval=0.2 -> ai-linear3_p5_probeInterval0.2)
+                    name="${m//:/-}"; name="${name//+/_}"; name="${name//=/}"
+                    out="$RAW/${sc}__${name}__${pl}__${seed}.csv"
                     [[ -f "$out" ]] && continue
-                    if [[ "$m" == ai:* ]]; then
+                    # Yöntemden sonra "+anahtar=değer" ekleri simülasyona --anahtar=değer olarak
+                    # geçer (ör. +probeInterval=0.2, +reportOnChange=1). "+noprobe": AODV/OLSR
+                    # yoklamasız koşar (ölçüm yükü taşımaz)
+                    extra=""; noprobe=""
+                    IFS=+ read -r -a parts <<< "$m"
+                    base="${parts[0]}"
+                    for opt in "${parts[@]:1}"; do
+                        if [[ "$opt" == noprobe ]]; then noprobe=1; else extra="$extra --$opt"; fi
+                    done
+                    if [[ "$base" == ai:* ]]; then
                         # ai:<tahminci>[:<maliyet>[:<gecikme ağırlığı>]]
-                        IFS=: read -r _ pred cost weight <<< "$m"
+                        IFS=: read -r _ pred cost weight <<< "$base"
                         args="--routing=ai --aiPredictor=$pred --controlPlane=$pl"
                         [[ -n "$cost" ]] && args="$args --aiCost=$cost"
                         [[ -n "$weight" ]] && args="$args --aiDelayWeight=$weight"
+                    elif [[ -n "$noprobe" ]]; then
+                        args="--routing=$base"                    # doğal hali: yoklama yok
                     else
-                        args="--routing=$m --linkCsv=/dev/null"  # yoklama yükü herkese eşit
+                        args="--routing=$base --linkCsv=/dev/null"  # yoklama yükü herkese eşit
                     fi
+                    args="$args$extra"
                     echo "ai_routing $args --scenario=$sc --seed=$seed --csv=$out" >> "$JOBLIST"
                 done
             done

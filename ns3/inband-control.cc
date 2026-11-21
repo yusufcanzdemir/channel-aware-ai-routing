@@ -60,6 +60,50 @@ InbandControl::InbandControl(NodeContainer nodes,
 }
 
 void
+InbandControl::SetReportOnChange(bool on, double threshold)
+{
+    m_reportOnChange = on;
+    m_changeThreshold = threshold;
+    m_lastReported.assign(m_n, {});
+    m_lastReportWindow.assign(m_n, 0);
+}
+
+bool
+InbandControl::ShouldReport(uint32_t node, const std::vector<ReportEntry>& entries)
+{
+    if (!m_reportOnChange || node == m_controller)
+    {
+        return true; // kontrolcünün kendi ölçümü ağ kullanmaz
+    }
+    std::map<uint8_t, uint8_t> now;
+    for (const auto& e : entries)
+    {
+        now[e.tx] = e.recv;
+    }
+    const auto& last = m_lastReported[node];
+    bool send = m_lastReportWindow[node] == 0 ||                    // hiç göndermedi
+                m_window - m_lastReportWindow[node] >= m_refreshEvery || // periyodik tazeleme
+                now.size() != last.size();                          // komşu eklendi/kayboldu
+    // Belirgin değişim: teslim oranı farkı >= eşik (yoklama sayısı cinsinden)
+    double minDiff = m_changeThreshold * m_probesPerWindow - 1e-9;
+    for (auto it = now.begin(); !send && it != now.end(); ++it)
+    {
+        auto old = last.find(it->first);
+        send = old == last.end() || std::abs(int(it->second) - int(old->second)) >= minDiff;
+    }
+    if (send)
+    {
+        m_lastReported[node] = now;
+        m_lastReportWindow[node] = m_window;
+    }
+    else
+    {
+        m_stats.reportsSuppressed++;
+    }
+    return send;
+}
+
+void
 InbandControl::SetReportDelay(bool on)
 {
     m_reportDelay = on;
@@ -96,8 +140,15 @@ InbandControl::OnWindow(const std::vector<LinkMonitor::Record>& window)
     }
     for (uint32_t i = 0; i < m_n; ++i)
     {
-        // Raporlar pencere sonundan sonraki 0-50 ms içinde rastgele bir anda gönderilir
-        Simulator::Schedule(Seconds(m_jitter->GetValue(0.0, 0.05)),
+        // Raporlar pencere sonundan sonraki 0-50 ms içinde rastgele bir anda gönderilir.
+        // (Rastgele bekleme her durumda çekilir: "sadece değişince rapor" açık/kapalı
+        // karşılaştırmasında diğer düğümlerin zamanlaması aynı kalsın.)
+        double wait = m_jitter->GetValue(0.0, 0.05);
+        if (!ShouldReport(i, perNode[i]))
+        {
+            continue;
+        }
+        Simulator::Schedule(Seconds(wait),
                             &InbandControl::SendReport, this, i, m_window, perNode[i]);
     }
     Simulator::Schedule(Seconds(m_collectWait), &InbandControl::Compute, this, m_window);
