@@ -28,10 +28,12 @@
 #include "slow-fading-loss-model.h"
 
 #include <cmath>
+#include <deque>
 #include <fstream>
 #include <memory>
 #include <set>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -82,6 +84,9 @@ main(int argc, char* argv[])
     //   56.6 m -> (çapraz komşu) ≈ -83.3 dBm, eşiğin altı, link yok
     // Böylece her düğüm sadece 4 yakın komşusunu duyar ve trafik çok sekmeli olur.
     double distance = 40.0;
+    // Yerleşim: grid (ızgara, ana deney) | random (alana rastgele, her seed farklı topoloji)
+    std::string topology = "grid";
+    double area = 0.0; // random: kare alanın kenarı (m); 0 = ortalama ~4 komşu olacak şekilde
     double txPower = 16.0;    // verici gücü (dBm)
     std::string phyMode = "DsssRate1Mbps"; // sabit Wi-Fi hızı (802.11b)
     uint32_t nFlows = 4;      // UDP akış sayısı
@@ -122,7 +127,9 @@ main(int argc, char* argv[])
     double changeThreshold = 0.3;
     // Kontrol düzlemi: ideal (bilgi anında, ağa yük yok) | inband (ağda gerçek paketler)
     std::string controlPlane = "ideal";
-    uint32_t controller = 5;      // inband: kontrolcünün çalıştığı düğüm (merkeze yakın)
+    // inband: kontrolcünün çalıştığı düğüm. -1 = otomatik: ızgarada 5 (merkeze yakın), rastgele
+    // yerleşimde diğer düğümlere toplam sekme sayısı en az olan (ağın merkezi)
+    int32_t controllerArg = -1;
     double collectWait = 0.2;     // inband: raporları toplama süresi (s)
     double bootstrap = 5.0;       // inband: bu ana kadar kontrol paketleri flooding ile
     uint32_t refresh = 5;         // inband: her N pencerede bir bütün tablolar yeniden gönderilir
@@ -171,7 +178,10 @@ main(int argc, char* argv[])
                  "AI: kontrolcunun gordugu tum oznitelikler (model egitimi icin)",
                  aiTrainCsv);
     cmd.AddValue("controlPlane", "AI kontrol duzlemi: ideal | inband", controlPlane);
-    cmd.AddValue("controller", "inband: kontrolcu dugumu", controller);
+    cmd.AddValue("controller", "inband: kontrolcu dugumu (-1 = otomatik, merkez)",
+                 controllerArg);
+    cmd.AddValue("topology", "Yerlesim: grid (izgara) | random (rastgele)", topology);
+    cmd.AddValue("area", "random: kare alanin kenari (m), 0 = yogunluga gore otomatik", area);
     cmd.AddValue("collectWait", "inband: rapor toplama suresi (s)", collectWait);
     cmd.AddValue("bootstrap", "inband: acilista flooding suresi (s)", bootstrap);
     cmd.AddValue("refresh", "inband: tam tablo tazeleme araligi (pencere)", refresh);
@@ -262,24 +272,180 @@ main(int argc, char* argv[])
         // (aodv, olsr) korur.
         method += "-np";
     }
+    if (topology == "random")
+    {
+        // Rastgele yerleşim sonuçları ızgarayla karışmasın: ai-linear3-rnd20-ib, aodv-np-rnd20
+        std::string tag = "-rnd" + std::to_string(nNodes);
+        bool ib = method.size() > 3 && method.compare(method.size() - 3, 3, "-ib") == 0;
+        method = ib ? method.substr(0, method.size() - 3) + tag + "-ib" : method + tag;
+    }
+    else if (topology != "grid")
+    {
+        std::cerr << "HATA: bilinmeyen topoloji: " << topology << std::endl;
+        return 1;
+    }
 
     // Aynı seed ile her zaman aynı sonucu almak için
     RngSeedManager::SetRun(seed);
 
     // ---------------------------------------------------------------------
-    // 2. Düğümler ve konumlar: sabit ızgara
+    // 2. Düğümler ve konumlar: sabit ızgara ya da rastgele yerleşim
     // ---------------------------------------------------------------------
     NodeContainer nodes;
     nodes.Create(nNodes);
 
+    // Sönümlemesiz alınan güç (dBm): kanaldakiyle aynı mesafe kaybı modeli (ayrı bir nesne)
+    Ptr<LogDistancePropagationLossModel> nominalLoss =
+        CreateObject<LogDistancePropagationLossModel>();
+    nominalLoss->SetAttribute("Exponent", DoubleValue(3.0));
+    auto nominalRx = [&](const Vector& a, const Vector& b) {
+        Ptr<ConstantPositionMobilityModel> ma = CreateObject<ConstantPositionMobilityModel>();
+        Ptr<ConstantPositionMobilityModel> mb = CreateObject<ConstantPositionMobilityModel>();
+        ma->SetPosition(a);
+        mb->SetPosition(b);
+        return nominalLoss->CalcRxPower(txPower, ma, mb);
+    };
+    const double kDetect = -82.0; // NS-3 algılama eşiği (dBm)
+
     MobilityHelper mobility;
-    mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-                                  "MinX", DoubleValue(0.0),
-                                  "MinY", DoubleValue(0.0),
-                                  "DeltaX", DoubleValue(distance),
-                                  "DeltaY", DoubleValue(distance),
-                                  "GridWidth", UintegerValue(gridWidth),
-                                  "LayoutType", StringValue("RowFirst"));
+    double areaSide = 0.0;               // random: alanın kenarı (m)
+    std::vector<Vector> randomPos;       // random: düğüm konumları
+    std::vector<bool> nominalLink;       // random: [a * n + b] sönümlemesiz link var mı
+    if (topology == "random")
+    {
+        // Menzil: sönümlemesiz alınan gücün algılama eşiğine eşit olduğu mesafe
+        double lo = 1.0, hi = 1000.0;
+        for (int it = 0; it < 60; ++it)
+        {
+            double mid = 0.5 * (lo + hi);
+            (nominalRx(Vector(0, 0, 0), Vector(mid, 0, 0)) >= kDetect ? lo : hi) = mid;
+        }
+        double range = lo;
+        // Alan: ortalama komşu sayısı ≈ n · π r² / A ≈ 4 olacak şekilde (ızgarada 3; kenardaki
+        // düğümler daha az komşu gördüğü için biraz yüksek tutuldu)
+        areaSide = area > 0 ? area : std::sqrt(nNodes * M_PI * range * range / 4.0);
+        // Ayrı ve sabit numaralı stream: konumlar sadece seed'e bağlı, yöntemden bağımsız
+        Ptr<UniformRandomVariable> place = CreateObject<UniformRandomVariable>();
+        place->SetStream(1300);
+        bool connected = false;
+        for (int attempt = 0; attempt < 1000 && !connected; ++attempt)
+        {
+            // Düğümler arası en az 10 m (aynı noktaya yığılmasınlar)
+            randomPos.clear();
+            while (randomPos.size() < nNodes)
+            {
+                Vector p(place->GetValue(0, areaSide), place->GetValue(0, areaSide), 0);
+                bool ok = true;
+                for (const auto& q : randomPos)
+                {
+                    ok = ok && CalculateDistance(p, q) >= 10.0;
+                }
+                if (ok)
+                {
+                    randomPos.push_back(p);
+                }
+            }
+            // Bağlılık: eşiğin 1 dB üstündeki (sönümlemesiz kararlı) linklerle her düğüme
+            // ulaşılabilmeli; değilse yerleşim yeniden çekilir
+            nominalLink.assign(nNodes * nNodes, false);
+            for (uint32_t a = 0; a < nNodes; ++a)
+            {
+                for (uint32_t b = 0; b < nNodes; ++b)
+                {
+                    nominalLink[a * nNodes + b] =
+                        a != b && nominalRx(randomPos[a], randomPos[b]) >= kDetect + 1.0;
+                }
+            }
+            std::vector<bool> seen(nNodes, false);
+            std::deque<uint32_t> queue = {0};
+            seen[0] = true;
+            uint32_t count = 1;
+            while (!queue.empty())
+            {
+                uint32_t u = queue.front();
+                queue.pop_front();
+                for (uint32_t v = 0; v < nNodes; ++v)
+                {
+                    if (nominalLink[u * nNodes + v] && !seen[v])
+                    {
+                        seen[v] = true;
+                        count++;
+                        queue.push_back(v);
+                    }
+                }
+            }
+            connected = count == nNodes;
+        }
+        NS_ABORT_MSG_IF(!connected, "Bagli bir rastgele yerlesim bulunamadi; --area kucultun");
+        Ptr<ListPositionAllocator> alloc = CreateObject<ListPositionAllocator>();
+        for (const auto& p : randomPos)
+        {
+            alloc->Add(p);
+        }
+        mobility.SetPositionAllocator(alloc);
+        uint32_t links = 0;
+        for (bool l : nominalLink)
+        {
+            links += l;
+        }
+        std::cout << "Rastgele yerlesim: " << nNodes << " dugum, alan " << areaSide << " x "
+                  << areaSide << " m, menzil " << range << " m, ort. komsu "
+                  << double(links) / nNodes << std::endl;
+        // Çizim için (analysis/topoloji.py): "KONUM düğüm x y"
+        for (uint32_t i = 0; i < nNodes; ++i)
+        {
+            std::cout << "KONUM " << i << " " << randomPos[i].x << " " << randomPos[i].y << "\n";
+        }
+    }
+    else
+    {
+        mobility.SetPositionAllocator("ns3::GridPositionAllocator",
+                                      "MinX", DoubleValue(0.0),
+                                      "MinY", DoubleValue(0.0),
+                                      "DeltaX", DoubleValue(distance),
+                                      "DeltaY", DoubleValue(distance),
+                                      "GridWidth", UintegerValue(gridWidth),
+                                      "LayoutType", StringValue("RowFirst"));
+    }
+
+    // Kontrolcü düğümü: ızgarada 5; rastgele yerleşimde ağın merkezi (diğer düğümlere
+    // sönümlemesiz linklerle toplam sekme sayısı en az olan; eşitlikte küçük numara)
+    uint32_t controller = 5;
+    if (controllerArg >= 0)
+    {
+        controller = uint32_t(controllerArg);
+    }
+    else if (topology == "random")
+    {
+        uint32_t best = std::numeric_limits<uint32_t>::max();
+        for (uint32_t c = 0; c < nNodes; ++c)
+        {
+            std::vector<uint32_t> hop(nNodes, std::numeric_limits<uint32_t>::max());
+            std::deque<uint32_t> queue = {c};
+            hop[c] = 0;
+            uint32_t sum = 0;
+            while (!queue.empty())
+            {
+                uint32_t u = queue.front();
+                queue.pop_front();
+                sum += hop[u];
+                for (uint32_t v = 0; v < nNodes; ++v)
+                {
+                    if (nominalLink[u * nNodes + v] && hop[v] == std::numeric_limits<uint32_t>::max())
+                    {
+                        hop[v] = hop[u] + 1;
+                        queue.push_back(v);
+                    }
+                }
+            }
+            if (sum < best)
+            {
+                best = sum;
+                controller = c;
+            }
+        }
+        std::cout << "Kontrolcu (ag merkezi): dugum " << controller << std::endl;
+    }
     // Hareketlilik yok: düğümler simülasyon boyunca yerinde kalır
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(nodes);
@@ -346,6 +512,10 @@ main(int argc, char* argv[])
                                                     gridWidth,
                                                     warmup,
                                                     simTime - 5.0);
+        if (topology == "random")
+        {
+            disturbance->SetCenter(Vector(areaSide / 2.0, areaSide / 2.0, 0)); // alanın ortası
+        }
         disturbance->InstallRadios(wifi, wifiPhy, wifiMac);
     }
 
@@ -387,10 +557,15 @@ main(int argc, char* argv[])
     Ptr<UniformRandomVariable> pick = CreateObject<UniformRandomVariable>();
     pick->SetStream(1000);
 
-    // Çok sekmeli trafik olsun diye kaynak ile hedef en az 2 komşu mesafesi uzakta olmalı
+    // Çok sekmeli trafik olsun diye kaynak ile hedef en az 2 komşu mesafesi uzakta olmalı.
+    // Rastgele yerleşimde: birbirini doğrudan duyamamalı (sönümlemesiz güç eşiğin altında)
     auto farEnough = [&](uint32_t a, uint32_t b) {
         Vector pa = nodes.Get(a)->GetObject<MobilityModel>()->GetPosition();
         Vector pb = nodes.Get(b)->GetObject<MobilityModel>()->GetPosition();
+        if (topology == "random")
+        {
+            return nominalRx(pa, pb) < kDetect;
+        }
         return CalculateDistance(pa, pb) >= 2.0 * distance - 1e-6;
     };
 

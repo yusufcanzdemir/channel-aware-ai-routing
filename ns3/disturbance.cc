@@ -42,13 +42,20 @@ Disturbance::Disturbance(const std::string& scenario,
 }
 
 void
+Disturbance::SetCenter(Vector center)
+{
+    m_center = center;
+    m_hasCenter = true;
+}
+
+void
 Disturbance::InstallRadios(WifiHelper& wifi, YansWifiPhyHelper& phy, WifiMacHelper& mac)
 {
     std::vector<Vector> pos;
     uint32_t rows = (m_nodes.GetN() + m_gridWidth - 1) / m_gridWidth;
     // Izgaranın orta noktası (4x4'te düğüm 5, 6, 9, 10'un ortası)
-    double cx = (m_gridWidth - 1) * m_spacing / 2.0;
-    double cy = (rows - 1) * m_spacing / 2.0;
+    double cx = m_hasCenter ? m_center.x : (m_gridWidth - 1) * m_spacing / 2.0;
+    double cy = m_hasCenter ? m_center.y : (rows - 1) * m_spacing / 2.0;
     if (m_scenario == "interference")
     {
         // Orta bölgenin etrafına üç verici: bölgedeki linkleri meşgul eder

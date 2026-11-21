@@ -46,6 +46,11 @@ class Disturbance
                 double start,
                 double stop);
 
+    // Girişim kaynaklarının / jammer'ın yerleşeceği merkez. Verilmezse ızgaranın ortası
+    // (spacing ve gridWidth'ten). Rastgele yerleşimde alanın ortası verilir.
+    // InstallRadios'tan önce çağrılmalı.
+    void SetCenter(Vector center);
+
     // Ek radyolu düğümleri (girişim kaynağı, jammer) oluşturur. Ana düğümlerin Wi-Fi
     // kurulumundan HEMEN SONRA, aynı yardımcılarla çağrılmalı (aynı kanal).
     void InstallRadios(WifiHelper& wifi, YansWifiPhyHelper& phy, WifiMacHelper& mac);
@@ -68,6 +73,8 @@ class Disturbance
     NetDeviceContainer m_devices;
     double m_spacing;
     uint32_t m_gridWidth;
+    bool m_hasCenter = false;
+    Vector m_center;
     std::vector<std::pair<uint32_t, uint32_t>> m_flows;
     double m_start;
     double m_stop;
