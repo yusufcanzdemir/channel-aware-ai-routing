@@ -1,0 +1,127 @@
+topoloji,senaryo,yontem,pdr,n
+ızgara 16 düğüm,none,AODV,97.73,30
+ızgara 16 düğüm,none,OLSR,96.25,30
+ızgara 16 düğüm,none,Son ölçüm,99.54,30
+ızgara 16 düğüm,none,EWMA,99.19,100
+ızgara 16 düğüm,none,v2,98.70,100
+ızgara 16 düğüm,none,v3,99.57,100
+ızgara 16 düğüm,fading,AODV,67.31,30
+ızgara 16 düğüm,fading,OLSR,66.82,30
+ızgara 16 düğüm,fading,Son ölçüm,89.54,30
+ızgara 16 düğüm,fading,EWMA,88.95,100
+ızgara 16 düğüm,fading,v2,90.96,100
+ızgara 16 düğüm,fading,v3,93.10,100
+ızgara 16 düğüm,degrade,AODV,54.35,30
+ızgara 16 düğüm,degrade,OLSR,54.55,30
+ızgara 16 düğüm,degrade,Son ölçüm,73.58,30
+ızgara 16 düğüm,degrade,EWMA,79.09,100
+ızgara 16 düğüm,degrade,v2,82.81,100
+ızgara 16 düğüm,degrade,v3,84.97,100
+ızgara 16 düğüm,interference,AODV,78.95,30
+ızgara 16 düğüm,interference,OLSR,65.95,30
+ızgara 16 düğüm,interference,Son ölçüm,79.45,30
+ızgara 16 düğüm,interference,EWMA,79.73,100
+ızgara 16 düğüm,interference,v2,85.37,100
+ızgara 16 düğüm,interference,v3,85.46,100
+ızgara 16 düğüm,jamming,AODV,65.75,30
+ızgara 16 düğüm,jamming,OLSR,71.87,30
+ızgara 16 düğüm,jamming,Son ölçüm,71.25,30
+ızgara 16 düğüm,jamming,EWMA,72.72,100
+ızgara 16 düğüm,jamming,v2,74.96,100
+ızgara 16 düğüm,jamming,v3,75.06,100
+ızgara 16 düğüm,nodefail,AODV,94.51,30
+ızgara 16 düğüm,nodefail,OLSR,91.00,30
+ızgara 16 düğüm,nodefail,Son ölçüm,97.08,30
+ızgara 16 düğüm,nodefail,EWMA,95.55,100
+ızgara 16 düğüm,nodefail,v2,95.74,100
+ızgara 16 düğüm,nodefail,v3,96.34,100
+ızgara 16 düğüm,congestion,AODV,82.82,30
+ızgara 16 düğüm,congestion,OLSR,80.94,30
+ızgara 16 düğüm,congestion,Son ölçüm,78.77,30
+ızgara 16 düğüm,congestion,EWMA,83.73,100
+ızgara 16 düğüm,congestion,v2,89.30,100
+ızgara 16 düğüm,congestion,v3,90.27,100
+rastgele 20 düğüm,none,AODV,96.68,30
+rastgele 20 düğüm,none,OLSR,96.87,30
+rastgele 20 düğüm,none,Son ölçüm,94.06,30
+rastgele 20 düğüm,none,EWMA,94.74,30
+rastgele 20 düğüm,none,v2,95.21,30
+rastgele 20 düğüm,none,v3,95.60,30
+rastgele 20 düğüm,fading,AODV,46.31,30
+rastgele 20 düğüm,fading,OLSR,56.69,30
+rastgele 20 düğüm,fading,Son ölçüm,69.02,30
+rastgele 20 düğüm,fading,EWMA,72.98,30
+rastgele 20 düğüm,fading,v2,77.42,30
+rastgele 20 düğüm,fading,v3,77.52,30
+rastgele 20 düğüm,degrade,AODV,41.60,30
+rastgele 20 düğüm,degrade,OLSR,52.05,30
+rastgele 20 düğüm,degrade,Son ölçüm,62.33,30
+rastgele 20 düğüm,degrade,EWMA,62.82,30
+rastgele 20 düğüm,degrade,v2,68.12,30
+rastgele 20 düğüm,degrade,v3,69.68,30
+rastgele 20 düğüm,interference,AODV,60.99,30
+rastgele 20 düğüm,interference,OLSR,69.37,30
+rastgele 20 düğüm,interference,Son ölçüm,62.21,30
+rastgele 20 düğüm,interference,EWMA,63.02,30
+rastgele 20 düğüm,interference,v2,69.39,30
+rastgele 20 düğüm,interference,v3,69.66,30
+rastgele 20 düğüm,jamming,AODV,70.98,30
+rastgele 20 düğüm,jamming,OLSR,76.67,30
+rastgele 20 düğüm,jamming,Son ölçüm,69.44,30
+rastgele 20 düğüm,jamming,EWMA,71.20,30
+rastgele 20 düğüm,jamming,v2,74.40,30
+rastgele 20 düğüm,jamming,v3,75.13,30
+rastgele 20 düğüm,nodefail,AODV,90.23,30
+rastgele 20 düğüm,nodefail,OLSR,93.11,30
+rastgele 20 düğüm,nodefail,Son ölçüm,89.63,30
+rastgele 20 düğüm,nodefail,EWMA,91.25,30
+rastgele 20 düğüm,nodefail,v2,91.72,30
+rastgele 20 düğüm,nodefail,v3,91.40,30
+rastgele 20 düğüm,congestion,AODV,81.41,30
+rastgele 20 düğüm,congestion,OLSR,85.87,30
+rastgele 20 düğüm,congestion,Son ölçüm,74.68,30
+rastgele 20 düğüm,congestion,EWMA,78.31,30
+rastgele 20 düğüm,congestion,v2,80.89,30
+rastgele 20 düğüm,congestion,v3,80.51,30
+rastgele 30 düğüm,none,AODV,91.74,29
+rastgele 30 düğüm,none,OLSR,95.41,29
+rastgele 30 düğüm,none,Son ölçüm,87.18,29
+rastgele 30 düğüm,none,EWMA,89.75,29
+rastgele 30 düğüm,none,v2,92.44,29
+rastgele 30 düğüm,none,v3,92.88,29
+rastgele 30 düğüm,fading,AODV,35.70,29
+rastgele 30 düğüm,fading,OLSR,49.83,29
+rastgele 30 düğüm,fading,Son ölçüm,58.36,29
+rastgele 30 düğüm,fading,EWMA,59.22,29
+rastgele 30 düğüm,fading,v2,64.06,29
+rastgele 30 düğüm,fading,v3,68.20,29
+rastgele 30 düğüm,degrade,AODV,32.00,29
+rastgele 30 düğüm,degrade,OLSR,46.84,29
+rastgele 30 düğüm,degrade,Son ölçüm,49.74,29
+rastgele 30 düğüm,degrade,EWMA,50.86,29
+rastgele 30 düğüm,degrade,v2,55.86,29
+rastgele 30 düğüm,degrade,v3,57.83,29
+rastgele 30 düğüm,interference,AODV,64.62,29
+rastgele 30 düğüm,interference,OLSR,72.77,29
+rastgele 30 düğüm,interference,Son ölçüm,59.19,29
+rastgele 30 düğüm,interference,EWMA,61.55,29
+rastgele 30 düğüm,interference,v2,68.40,29
+rastgele 30 düğüm,interference,v3,68.31,29
+rastgele 30 düğüm,jamming,AODV,68.54,29
+rastgele 30 düğüm,jamming,OLSR,76.13,29
+rastgele 30 düğüm,jamming,Son ölçüm,67.03,29
+rastgele 30 düğüm,jamming,EWMA,65.85,29
+rastgele 30 düğüm,jamming,v2,71.93,29
+rastgele 30 düğüm,jamming,v3,72.70,29
+rastgele 30 düğüm,nodefail,AODV,84.57,29
+rastgele 30 düğüm,nodefail,OLSR,90.89,29
+rastgele 30 düğüm,nodefail,Son ölçüm,80.25,29
+rastgele 30 düğüm,nodefail,EWMA,80.80,29
+rastgele 30 düğüm,nodefail,v2,86.49,29
+rastgele 30 düğüm,nodefail,v3,87.15,29
+rastgele 30 düğüm,congestion,AODV,74.25,29
+rastgele 30 düğüm,congestion,OLSR,84.75,29
+rastgele 30 düğüm,congestion,Son ölçüm,71.09,29
+rastgele 30 düğüm,congestion,EWMA,71.55,29
+rastgele 30 düğüm,congestion,v2,75.28,29
+rastgele 30 düğüm,congestion,v3,76.62,29

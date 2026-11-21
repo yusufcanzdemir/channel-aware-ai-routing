@@ -321,8 +321,9 @@ main(int argc, char* argv[])
             (nominalRx(Vector(0, 0, 0), Vector(mid, 0, 0)) >= kDetect ? lo : hi) = mid;
         }
         double range = lo;
-        // Alan: ortalama komşu sayısı ≈ n · π r² / A ≈ 4 olacak şekilde (ızgarada 3; kenardaki
-        // düğümler daha az komşu gördüğü için biraz yüksek tutuldu)
+        // Alan: n · π r² / A ≈ 4 olacak şekilde. Gerçekleşen ortalama KARARLI (eşik + 1 dB) komşu
+        // sayısı daha düşük çıkıyor: 20 düğümde ~2.3, 30 düğümde ~2.9 (ızgarada 3); kenar
+        // düğümleri az komşu görür ve kararlı linklerin menzili tam menzilden kısadır
         areaSide = area > 0 ? area : std::sqrt(nNodes * M_PI * range * range / 4.0);
         // Ayrı ve sabit numaralı stream: konumlar sadece seed'e bağlı, yöntemden bağımsız
         Ptr<UniformRandomVariable> place = CreateObject<UniformRandomVariable>();

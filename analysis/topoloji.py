@@ -32,7 +32,10 @@ SCEN_NAMES = {"none": "Bozulmasız", "fading": "Fading", "degrade": "Kademeli bo
               "congestion": "Tıkanıklık"}
 METHODS = [("aodv-np", "-", "AODV"), ("olsr-np", "-", "OLSR"),
            ("ai-last", "inband", "Son ölçüm"), ("ai-ewma", "inband", "EWMA"),
-           ("ai-linear2", "inband", "v2"), ("ai-linear3", "inband", "v3")]
+           ("ai-linear2", "inband", "v2"), ("ai-linear3", "inband", "v3"),
+           # Düşük yüklü ayar (deney B'nin önerisi: 5 yoklama/s + sadece değişince rapor)
+           ("ai-ewma-p5-roc", "inband", "EWMA düşük yük"),
+           ("ai-linear3_p5roc-p5-roc", "inband", "v3 düşük yük")]
 TEXT, MUTED, GRID, AXIS = "#0b0b0b", "#52514e", "#e1e0d9", "#c3c2b7"
 
 
@@ -76,7 +79,9 @@ def tables(df):
     t = pd.DataFrame(rows)
     t.to_csv(REPO / "results/topoloji.csv", index=False, float_format="%.2f")
     L = ["# Düzensiz yerleşim ve ölçeklenme (otomatik: analysis/topoloji.py)", "",
-         "Rastgele yerleşim: kare alan, ortalama ~4 komşu, her seed farklı topoloji. Model "
+         "Rastgele yerleşim: kare alan, her seed farklı topoloji; ortalama kararlı komşu sayısı "
+         "20 düğümde ~2.3, 30 düğümde ~2.9 (ızgarada 3). 30 düğümde seed 125 için bağlı yerleşim "
+         "bulunamadı (29 seed). Model "
          "ızgarada eğitildi (yeniden eğitilmedi). AI yöntemleri gerçekçi (in-band) düzlemde; "
          "AODV/OLSR yoklamasız.", ""]
     for topo in topos:
@@ -85,14 +90,14 @@ def tables(df):
             continue
         names = [n for _, _, n in METHODS if n in set(sub["yontem"])]
         L += [f"## {topo}: teslim oranı (%)", "",
-              "| Senaryo | " + " | ".join(names) + " | v3 − EWMA | v3 − AODV |",
-              "|" + " --- |" * (len(names) + 3)]
+              "| Senaryo | " + " | ".join(names) + " | v3 − EWMA | v3 − AODV | v3 − OLSR |",
+              "|" + " --- |" * (len(names) + 4)]
         for sc in SCEN:
             r = sub[sub["senaryo"] == sc].set_index("yontem")["pdr"]
             if r.empty:
                 continue
             cells = [f"{r[n]:.1f}" if n in r else "-" for n in names]
-            for b in (("ai-ewma", "inband"), ("aodv-np", "-")):
+            for b in (("ai-ewma", "inband"), ("aodv-np", "-"), ("olsr-np", "-")):
                 p = paired(df, topo, sc, ("ai-linear3", "inband"), b)
                 cells.append(f"{p[0]:+.1f} (p {p[1]:.3f})" if p else "-")
             L.append(f"| {SCEN_NAMES[sc]} | " + " | ".join(cells) + " |")

@@ -1,0 +1,127 @@
+yontem,yoklama,degisince,ayar,scenario,pdr,yuk,yoklama_yuku,kontrol_yuku,n
+EWMA,2,False,"2/s, her saniye rapor",congestion,76.681,14.463,2.329,12.134,30
+EWMA,2,False,"2/s, her saniye rapor",degrade,68.213,15.181,2.352,12.829,30
+EWMA,2,False,"2/s, her saniye rapor",fading,82.932,14.303,2.353,11.949,30
+EWMA,2,False,"2/s, her saniye rapor",interference,70.424,16.531,2.324,14.207,30
+EWMA,2,False,"2/s, her saniye rapor",jamming,72.189,12.009,2.299,9.711,30
+EWMA,2,False,"2/s, her saniye rapor",nodefail,93.721,10.982,2.265,8.717,30
+EWMA,2,False,"2/s, her saniye rapor",none,97.491,11.169,2.356,8.813,30
+EWMA,2,True,"2/s, değişince rapor",congestion,75.546,13.377,2.328,11.049,30
+EWMA,2,True,"2/s, değişince rapor",degrade,67.673,14.541,2.352,12.188,30
+EWMA,2,True,"2/s, değişince rapor",fading,82.786,13.221,2.354,10.866,30
+EWMA,2,True,"2/s, değişince rapor",interference,71.860,14.463,2.327,12.136,30
+EWMA,2,True,"2/s, değişince rapor",jamming,72.096,10.348,2.301,8.047,30
+EWMA,2,True,"2/s, değişince rapor",nodefail,96.826,9.273,2.265,7.008,30
+EWMA,2,True,"2/s, değişince rapor",none,99.358,9.410,2.356,7.054,30
+EWMA,5,False,"5/s, her saniye rapor",congestion,81.239,17.002,5.818,11.184,30
+EWMA,5,False,"5/s, her saniye rapor",degrade,77.799,17.342,5.880,11.462,30
+EWMA,5,False,"5/s, her saniye rapor",fading,86.326,15.912,5.884,10.027,30
+EWMA,5,False,"5/s, her saniye rapor",interference,76.439,18.788,5.798,12.990,30
+EWMA,5,False,"5/s, her saniye rapor",jamming,72.125,14.434,5.710,8.724,30
+EWMA,5,False,"5/s, her saniye rapor",nodefail,95.980,13.814,5.659,8.155,30
+EWMA,5,False,"5/s, her saniye rapor",none,99.970,14.250,5.887,8.363,30
+EWMA,5,True,"5/s, değişince rapor",congestion,80.992,14.047,5.813,8.234,30
+EWMA,5,True,"5/s, değişince rapor",degrade,78.109,15.883,5.881,10.002,30
+EWMA,5,True,"5/s, değişince rapor",fading,89.114,14.751,5.883,8.867,30
+EWMA,5,True,"5/s, değişince rapor",interference,78.003,15.102,5.798,9.304,30
+EWMA,5,True,"5/s, değişince rapor",jamming,72.472,11.650,5.714,5.936,30
+EWMA,5,True,"5/s, değişince rapor",nodefail,97.185,10.392,5.659,4.733,30
+EWMA,5,True,"5/s, değişince rapor",none,99.994,10.584,5.887,4.697,30
+EWMA,10,False,"10/s, her saniye rapor",congestion,83.734,22.229,11.601,10.628,100
+EWMA,10,False,"10/s, her saniye rapor",degrade,79.087,22.924,11.763,11.161,100
+EWMA,10,False,"10/s, her saniye rapor",fading,88.946,21.597,11.772,9.825,100
+EWMA,10,False,"10/s, her saniye rapor",interference,79.731,25.021,11.483,13.538,100
+EWMA,10,False,"10/s, her saniye rapor",jamming,72.716,19.418,11.171,8.246,100
+EWMA,10,False,"10/s, her saniye rapor",nodefail,95.553,19.472,11.324,8.148,100
+EWMA,10,False,"10/s, her saniye rapor",none,99.191,20.028,11.775,8.253,100
+EWMA,10,True,"10/s, değişince rapor",congestion,83.855,18.753,11.592,7.160,30
+EWMA,10,True,"10/s, değişince rapor",degrade,76.766,20.972,11.759,9.212,30
+EWMA,10,True,"10/s, değişince rapor",fading,87.923,19.755,11.770,7.984,30
+EWMA,10,True,"10/s, değişince rapor",interference,83.618,19.677,11.548,8.129,30
+EWMA,10,True,"10/s, değişince rapor",jamming,71.874,16.136,11.167,4.969,30
+EWMA,10,True,"10/s, değişince rapor",nodefail,97.113,15.431,11.319,4.112,30
+EWMA,10,True,"10/s, değişince rapor",none,99.672,15.771,11.774,3.997,30
+Model v3,2,False,"2/s, her saniye rapor",congestion,90.961,11.351,2.334,9.017,30
+Model v3,2,False,"2/s, her saniye rapor",degrade,82.635,12.813,2.354,10.458,30
+Model v3,2,False,"2/s, her saniye rapor",fading,92.473,11.772,2.356,9.417,30
+Model v3,2,False,"2/s, her saniye rapor",interference,86.065,12.374,2.341,10.033,30
+Model v3,2,False,"2/s, her saniye rapor",jamming,77.730,10.653,2.294,8.359,30
+Model v3,2,False,"2/s, her saniye rapor",nodefail,96.553,10.123,2.265,7.859,30
+Model v3,2,False,"2/s, her saniye rapor",none,99.790,10.337,2.356,7.981,30
+Model v3,2,True,"2/s, değişince rapor",congestion,92.361,9.930,2.336,7.594,30
+Model v3,2,True,"2/s, değişince rapor",degrade,81.473,11.751,2.354,9.397,30
+Model v3,2,True,"2/s, değişince rapor",fading,93.562,11.160,2.356,8.804,30
+Model v3,2,True,"2/s, değişince rapor",interference,87.045,10.495,2.341,8.154,30
+Model v3,2,True,"2/s, değişince rapor",jamming,77.848,9.032,2.294,6.737,30
+Model v3,2,True,"2/s, değişince rapor",nodefail,97.780,8.395,2.265,6.130,30
+Model v3,2,True,"2/s, değişince rapor",none,99.997,8.409,2.356,6.053,30
+Model v3,5,False,"5/s, her saniye rapor",congestion,91.121,15.147,5.831,9.316,30
+Model v3,5,False,"5/s, her saniye rapor",degrade,85.364,16.222,5.882,10.340,30
+Model v3,5,False,"5/s, her saniye rapor",fading,89.893,15.308,5.886,9.422,30
+Model v3,5,False,"5/s, her saniye rapor",interference,87.634,17.134,5.818,11.316,30
+Model v3,5,False,"5/s, her saniye rapor",jamming,76.576,13.944,5.695,8.249,30
+Model v3,5,False,"5/s, her saniye rapor",nodefail,96.657,13.837,5.659,8.178,30
+Model v3,5,False,"5/s, her saniye rapor",none,99.996,14.143,5.887,8.257,30
+Model v3,5,True,"5/s, değişince rapor",congestion,92.326,12.124,5.835,6.289,30
+Model v3,5,True,"5/s, değişince rapor",degrade,85.403,15.511,5.882,9.629,30
+Model v3,5,True,"5/s, değişince rapor",fading,94.419,13.992,5.886,8.106,30
+Model v3,5,True,"5/s, değişince rapor",interference,88.615,13.092,5.831,7.260,30
+Model v3,5,True,"5/s, değişince rapor",jamming,76.469,11.210,5.697,5.512,30
+Model v3,5,True,"5/s, değişince rapor",nodefail,97.503,10.471,5.659,4.812,30
+Model v3,5,True,"5/s, değişince rapor",none,99.986,10.566,5.887,4.679,30
+Model v3,10,False,"10/s, her saniye rapor",congestion,90.266,21.111,11.643,9.468,100
+Model v3,10,False,"10/s, her saniye rapor",degrade,84.968,22.497,11.767,10.730,100
+Model v3,10,False,"10/s, her saniye rapor",fading,93.103,21.606,11.772,9.834,100
+Model v3,10,False,"10/s, her saniye rapor",interference,85.464,23.865,11.525,12.340,100
+Model v3,10,False,"10/s, her saniye rapor",jamming,75.058,19.394,11.206,8.188,100
+Model v3,10,False,"10/s, her saniye rapor",nodefail,96.335,19.724,11.324,8.399,100
+Model v3,10,False,"10/s, her saniye rapor",none,99.570,20.091,11.775,8.316,100
+Model v3,10,True,"10/s, değişince rapor",congestion,91.226,17.706,11.650,6.056,30
+Model v3,10,True,"10/s, değişince rapor",degrade,83.121,20.760,11.764,8.996,30
+Model v3,10,True,"10/s, değişince rapor",fading,91.075,19.809,11.773,8.037,30
+Model v3,10,True,"10/s, değişince rapor",interference,86.084,18.749,11.564,7.185,30
+Model v3,10,True,"10/s, değişince rapor",jamming,74.828,16.233,11.195,5.038,30
+Model v3,10,True,"10/s, değişince rapor",nodefail,97.616,15.697,11.320,4.377,30
+Model v3,10,True,"10/s, değişince rapor",none,99.087,15.991,11.774,4.216,30
+Son ölçüm,2,False,"2/s, her saniye rapor",congestion,71.608,15.766,2.327,13.439,30
+Son ölçüm,2,False,"2/s, her saniye rapor",degrade,61.600,16.503,2.352,14.151,30
+Son ölçüm,2,False,"2/s, her saniye rapor",fading,73.086,15.465,2.352,13.113,30
+Son ölçüm,2,False,"2/s, her saniye rapor",interference,65.916,18.576,2.324,16.252,30
+Son ölçüm,2,False,"2/s, her saniye rapor",jamming,69.467,13.116,2.297,10.819,30
+Son ölçüm,2,False,"2/s, her saniye rapor",nodefail,89.986,12.446,2.264,10.181,30
+Son ölçüm,2,False,"2/s, her saniye rapor",none,95.606,12.484,2.356,10.128,30
+Son ölçüm,2,True,"2/s, değişince rapor",congestion,73.913,14.258,2.331,11.927,30
+Son ölçüm,2,True,"2/s, değişince rapor",degrade,59.892,16.083,2.352,13.731,30
+Son ölçüm,2,True,"2/s, değişince rapor",fading,71.897,14.993,2.352,12.640,30
+Son ölçüm,2,True,"2/s, değişince rapor",interference,67.479,15.576,2.330,13.246,30
+Son ölçüm,2,True,"2/s, değişince rapor",jamming,70.366,11.443,2.305,9.138,30
+Son ölçüm,2,True,"2/s, değişince rapor",nodefail,93.532,10.509,2.264,8.245,30
+Son ölçüm,2,True,"2/s, değişince rapor",none,97.424,10.666,2.356,8.310,30
+Son ölçüm,5,False,"5/s, her saniye rapor",congestion,75.024,18.556,5.814,12.742,30
+Son ölçüm,5,False,"5/s, her saniye rapor",degrade,70.296,19.020,5.878,13.142,30
+Son ölçüm,5,False,"5/s, her saniye rapor",fading,83.245,17.050,5.882,11.167,30
+Son ölçüm,5,False,"5/s, her saniye rapor",interference,72.352,20.531,5.769,14.762,30
+Son ölçüm,5,False,"5/s, her saniye rapor",jamming,71.453,15.095,5.706,9.390,30
+Son ölçüm,5,False,"5/s, her saniye rapor",nodefail,95.493,14.489,5.659,8.830,30
+Son ölçüm,5,False,"5/s, her saniye rapor",none,99.857,14.977,5.887,9.090,30
+Son ölçüm,5,True,"5/s, değişince rapor",congestion,76.962,15.145,5.816,9.328,30
+Son ölçüm,5,True,"5/s, değişince rapor",degrade,70.321,17.236,5.879,11.357,30
+Son ölçüm,5,True,"5/s, değişince rapor",fading,83.858,15.762,5.883,9.879,30
+Son ölçüm,5,True,"5/s, değişince rapor",interference,75.067,15.904,5.799,10.105,30
+Son ölçüm,5,True,"5/s, değişince rapor",jamming,72.016,12.269,5.722,6.548,30
+Son ölçüm,5,True,"5/s, değişince rapor",nodefail,97.504,11.065,5.659,5.405,30
+Son ölçüm,5,True,"5/s, değişince rapor",none,99.825,11.228,5.887,5.342,30
+Son ölçüm,10,False,"10/s, her saniye rapor",congestion,78.774,23.658,11.540,12.118,30
+Son ölçüm,10,False,"10/s, her saniye rapor",degrade,73.576,23.521,11.754,11.767,30
+Son ölçüm,10,False,"10/s, her saniye rapor",fading,89.543,22.324,11.768,10.556,30
+Son ölçüm,10,False,"10/s, her saniye rapor",interference,79.448,25.935,11.422,14.513,30
+Son ölçüm,10,False,"10/s, her saniye rapor",jamming,71.247,19.867,11.166,8.701,30
+Son ölçüm,10,False,"10/s, her saniye rapor",nodefail,97.083,19.921,11.319,8.602,30
+Son ölçüm,10,False,"10/s, her saniye rapor",none,99.536,20.582,11.774,8.807,30
+Son ölçüm,10,True,"10/s, değişince rapor",congestion,81.155,19.450,11.570,7.880,30
+Son ölçüm,10,True,"10/s, değişince rapor",degrade,76.219,21.934,11.756,10.178,30
+Son ölçüm,10,True,"10/s, değişince rapor",fading,85.302,20.479,11.769,8.710,30
+Son ölçüm,10,True,"10/s, değişince rapor",interference,80.272,20.350,11.508,8.842,30
+Son ölçüm,10,True,"10/s, değişince rapor",jamming,71.874,16.613,11.166,5.447,30
+Son ölçüm,10,True,"10/s, değişince rapor",nodefail,97.764,15.889,11.319,4.570,30
+Son ölçüm,10,True,"10/s, değişince rapor",none,99.528,16.327,11.774,4.553,30
