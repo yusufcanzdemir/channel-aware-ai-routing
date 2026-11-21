@@ -107,8 +107,11 @@ def tables(df):
 
 
 def draw():
-    """Birkaç örnek rastgele topoloji: düğümler, sönümlemesiz kararlı linkler, kontrolcü."""
+    """Birkaç örnek rastgele topoloji: düğümler, sönümlemesiz kararlı linkler, kontrolcü.
+    Konumlar ayrıca results/topoloji_ornek.json'a yazılır (sunum sitesi çizer)."""
+    import json
     cases = [(20, 101), (20, 102), (30, 101)]
+    saved = []
     fig, axes = plt.subplots(1, len(cases), figsize=(10.5, 3.8), dpi=150)
     for ax, (n, seed) in zip(axes, cases):
         out = subprocess.run(
@@ -145,6 +148,11 @@ def draw():
                 frontier = nxt
             sums.append(hop.sum())
         ctrl = int(np.argmin(sums))
+        saved.append({"n": n, "seed": seed, "side": round(side, 1),
+                      "pos": [[round(float(x), 1), round(float(y), 1)] for x, y in pos],
+                      "links": [[int(a), int(b)] for a in range(n) for b in range(a + 1, n)
+                                if adj[a][b]],
+                      "controller": ctrl})
         ax.scatter(pos[:, 0], pos[:, 1], s=36, color="#2a78d6", zorder=2)
         ax.scatter(*pos[ctrl], s=110, facecolor="white", edgecolor="#eb6834", linewidth=2.5,
                    zorder=3)
@@ -161,6 +169,7 @@ def draw():
     fig.tight_layout()
     fig.savefig(REPO / "results/figures/topoloji_ornek.png")
     plt.close(fig)
+    (REPO / "results/topoloji_ornek.json").write_text(json.dumps(saved))
     print("Cizim: results/figures/topoloji_ornek.png")
 
 

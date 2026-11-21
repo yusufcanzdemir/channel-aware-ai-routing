@@ -1,0 +1,15 @@
+routing,scenario,pdr,yuk
+aodv-np,congestion,82.823,4.725
+aodv-np,degrade,54.353,4.951
+aodv-np,fading,67.308,4.623
+aodv-np,interference,78.955,2.808
+aodv-np,jamming,65.746,2.425
+aodv-np,nodefail,94.509,1.545
+aodv-np,none,97.731,1.563
+olsr-np,congestion,80.940,1.669
+olsr-np,degrade,54.547,1.673
+olsr-np,fading,66.825,1.711
+olsr-np,interference,65.952,1.748
+olsr-np,jamming,71.868,1.531
+olsr-np,nodefail,91.004,1.576
+olsr-np,none,96.255,1.701

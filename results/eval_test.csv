@@ -10,8 +10,11 @@ none,ideal,ai-linear3 - ai-linear3a,30,0.0189,0.0754,5,0.6126,0.5754
 none,ideal,ai-gbm3 - ai-linear3,30,-0.0277,0.0877,8,0.5240,0.7273
 none,ideal,ai-linear3 - ai-ewma,30,-0.0189,0.1053,6,0.7165,0.4946
 none,ideal,ai-gbm3 - ai-ewma,30,-0.0465,0.1051,8,0.3726,0.3131
+none,ideal,ai-linear3 - ai-last,30,-0.0214,0.1142,11,0.7044,0.7228
 none,ideal,ai-linear2 - aodv,30,0.4956,0.2659,22,0.0007,0.0005
 none,ideal,ai-linear2 - olsr,30,5.6039,1.9345,28,0.0000,0.0000
+none,ideal,ai-linear3 - aodv-np,30,2.0704,2.3995,26,0.0881,0.0000
+none,ideal,ai-linear3 - olsr-np,30,3.5465,1.5550,25,0.0001,0.0000
 none,inband,ai-linear2 - ai-last,30,0.0113,0.0162,7,0.1633,0.1635
 none,inband,ai-linear2 - ai-ewma,100,-0.4909,0.7904,14,0.2207,0.8081
 none,inband,ai-linear2 - ai-holt,30,-0.0679,0.1339,4,0.3079,0.4487
@@ -23,8 +26,11 @@ none,inband,ai-linear3 - ai-linear3a,30,-0.0164,0.0450,6,0.4630,0.6658
 none,inband,ai-gbm3 - ai-linear3,30,0.0918,0.1825,4,0.3121,0.1573
 none,inband,ai-linear3 - ai-ewma,100,0.3792,0.5654,20,0.1863,0.0779
 none,inband,ai-gbm3 - ai-ewma,30,0.1308,0.2544,3,0.3016,0.1088
+none,inband,ai-linear3 - ai-last,30,0.0742,0.1284,8,0.2467,0.0202
 none,inband,ai-linear2 - aodv,30,0.2906,0.8951,27,0.5120,0.0001
 none,inband,ai-linear2 - olsr,30,5.3989,1.7067,29,0.0000,0.0000
+none,inband,ai-linear3 - aodv-np,30,1.8792,2.5665,27,0.1450,0.0001
+none,inband,ai-linear3 - olsr-np,30,3.3554,1.7595,26,0.0005,0.0001
 none,-,linear2 inband - ideal,30,-0.2050,0.9316,19,0.6560,0.0011
 fading,ideal,ai-linear2 - ai-last,30,0.8063,1.9383,21,0.4019,0.0804
 fading,ideal,ai-linear2 - ai-ewma,30,-0.3510,1.5164,21,0.6395,0.2096
@@ -37,8 +43,11 @@ fading,ideal,ai-linear3 - ai-linear3a,30,1.0490,1.0596,21,0.0522,0.0641
 fading,ideal,ai-gbm3 - ai-linear3,30,0.3434,0.9914,19,0.4843,0.1020
 fading,ideal,ai-linear3 - ai-ewma,30,0.4063,1.3336,24,0.5381,0.0010
 fading,ideal,ai-gbm3 - ai-ewma,30,0.7497,1.0961,25,0.1725,0.0034
+fading,ideal,ai-linear3 - ai-last,30,1.5635,1.9404,25,0.1101,0.0018
 fading,ideal,ai-linear2 - aodv,30,33.5459,5.7231,30,0.0000,0.0000
 fading,ideal,ai-linear2 - olsr,30,30.9741,3.8688,30,0.0000,0.0000
+fading,ideal,ai-linear3 - aodv-np,30,29.0717,5.6072,29,0.0000,0.0000
+fading,ideal,ai-linear3 - olsr-np,30,29.5550,3.7472,29,0.0000,0.0000
 fading,inband,ai-linear2 - ai-last,30,2.2088,1.8107,20,0.0185,0.0075
 fading,inband,ai-linear2 - ai-ewma,100,2.0177,1.1247,69,0.0006,0.0003
 fading,inband,ai-linear2 - ai-holt,30,2.9220,1.7348,24,0.0018,0.0011
@@ -50,8 +59,11 @@ fading,inband,ai-linear3 - ai-linear3a,30,-0.0528,1.1099,16,0.9231,0.8451
 fading,inband,ai-gbm3 - ai-linear3,30,0.9585,1.2285,22,0.1214,0.0114
 fading,inband,ai-linear3 - ai-ewma,100,4.1570,1.2969,87,0.0000,0.0000
 fading,inband,ai-gbm3 - ai-ewma,30,5.4642,2.3550,27,0.0001,0.0000
+fading,inband,ai-linear3 - ai-last,30,3.7396,1.7199,24,0.0001,0.0001
 fading,inband,ai-linear2 - aodv,30,29.6755,4.9889,29,0.0000,0.0000
 fading,inband,ai-linear2 - olsr,30,27.1037,4.6930,30,0.0000,0.0000
+fading,inband,ai-linear3 - aodv-np,30,25.9748,5.0905,30,0.0000,0.0000
+fading,inband,ai-linear3 - olsr-np,30,26.4582,3.1514,30,0.0000,0.0000
 fading,-,linear2 inband - ideal,30,-3.8704,3.1717,7,0.0185,0.0052
 degrade,ideal,ai-linear2 - ai-last,30,2.3686,2.0617,25,0.0258,0.0066
 degrade,ideal,ai-linear2 - ai-ewma,30,1.8943,2.3823,22,0.1147,0.0545
@@ -64,8 +76,11 @@ degrade,ideal,ai-linear3 - ai-linear3a,30,-1.4289,2.5493,14,0.2610,0.4779
 degrade,ideal,ai-gbm3 - ai-linear3,30,2.1786,2.9216,17,0.1381,0.1306
 degrade,ideal,ai-linear3 - ai-ewma,30,0.2491,2.1285,22,0.8125,0.0368
 degrade,ideal,ai-gbm3 - ai-ewma,30,2.4277,2.8744,24,0.0947,0.0008
+degrade,ideal,ai-linear3 - ai-last,30,0.7233,2.7962,23,0.6008,0.0113
 degrade,ideal,ai-linear2 - aodv,30,34.5497,4.7737,30,0.0000,0.0000
 degrade,ideal,ai-linear2 - olsr,30,38.8807,3.5111,30,0.0000,0.0000
+degrade,ideal,ai-linear3 - aodv-np,30,35.6604,6.3645,30,0.0000,0.0000
+degrade,ideal,ai-linear3 - olsr-np,30,35.4665,3.9366,30,0.0000,0.0000
 degrade,inband,ai-linear2 - ai-last,30,8.0654,3.4494,26,0.0000,0.0000
 degrade,inband,ai-linear2 - ai-ewma,100,3.7257,1.6213,68,0.0000,0.0000
 degrade,inband,ai-linear2 - ai-holt,30,7.4491,3.9008,24,0.0005,0.0003
@@ -77,8 +92,11 @@ degrade,inband,ai-linear3 - ai-linear3a,30,1.3182,1.6204,18,0.1069,0.0859
 degrade,inband,ai-gbm3 - ai-linear3,30,-1.2692,2.9536,14,0.3867,0.8372
 degrade,inband,ai-linear3 - ai-ewma,100,5.8815,1.7805,81,0.0000,0.0000
 degrade,inband,ai-gbm3 - ai-ewma,30,8.3057,2.9980,26,0.0000,0.0000
+degrade,inband,ai-linear3 - ai-last,30,12.0352,4.0304,29,0.0000,0.0000
 degrade,inband,ai-linear2 - aodv,30,24.5321,5.7989,28,0.0000,0.0000
 degrade,inband,ai-linear2 - olsr,30,28.8631,3.7207,30,0.0000,0.0000
+degrade,inband,ai-linear3 - aodv-np,30,31.2579,6.2961,30,0.0000,0.0000
+degrade,inband,ai-linear3 - olsr-np,30,31.0639,4.8069,30,0.0000,0.0000
 degrade,-,linear2 inband - ideal,30,-10.0176,3.5474,4,0.0000,0.0000
 interference,ideal,ai-linear2 - ai-last,30,5.0780,1.6789,28,0.0000,0.0001
 interference,ideal,ai-linear2 - ai-ewma,30,4.4314,1.8716,24,0.0000,0.0000
@@ -91,8 +109,11 @@ interference,ideal,ai-linear3 - ai-linear3a,30,0.2679,1.1947,18,0.6499,0.1442
 interference,ideal,ai-gbm3 - ai-linear3,30,-0.8943,1.5544,7,0.2489,0.0219
 interference,ideal,ai-linear3 - ai-ewma,30,4.5799,1.7822,25,0.0000,0.0000
 interference,ideal,ai-gbm3 - ai-ewma,30,3.6855,1.7881,24,0.0002,0.0002
+interference,ideal,ai-linear3 - ai-last,30,5.2264,1.3786,28,0.0000,0.0000
 interference,ideal,ai-linear2 - aodv,30,10.7283,2.8550,29,0.0000,0.0000
 interference,ideal,ai-linear2 - olsr,30,25.5521,3.9817,30,0.0000,0.0000
+interference,ideal,ai-linear3 - aodv-np,30,10.2868,4.0631,25,0.0000,0.0000
+interference,ideal,ai-linear3 - olsr-np,30,23.2892,3.7361,30,0.0000,0.0000
 interference,inband,ai-linear2 - ai-last,30,6.9497,2.0144,25,0.0000,0.0000
 interference,inband,ai-linear2 - ai-ewma,100,5.6355,1.0200,92,0.0000,0.0000
 interference,inband,ai-linear2 - ai-holt,30,8.8667,2.7212,27,0.0000,0.0000
@@ -104,8 +125,11 @@ interference,inband,ai-linear3 - ai-linear3a,30,1.0868,1.2495,19,0.0858,0.0407
 interference,inband,ai-gbm3 - ai-linear3,30,-1.9811,1.3964,7,0.0070,0.0039
 interference,inband,ai-linear3 - ai-ewma,100,5.7336,1.0246,91,0.0000,0.0000
 interference,inband,ai-gbm3 - ai-ewma,30,4.2805,2.1403,25,0.0003,0.0000
+interference,inband,ai-linear3 - ai-last,30,7.5220,2.1851,26,0.0000,0.0000
 interference,inband,ai-linear2 - aodv,30,8.0327,2.8314,27,0.0000,0.0000
 interference,inband,ai-linear2 - olsr,30,22.8565,4.4019,30,0.0000,0.0000
+interference,inband,ai-linear3 - aodv-np,30,8.0151,4.1011,24,0.0004,0.0004
+interference,inband,ai-linear3 - olsr-np,30,21.0175,3.7684,30,0.0000,0.0000
 interference,-,linear2 inband - ideal,30,-2.6956,1.4162,4,0.0005,0.0001
 jamming,ideal,ai-linear2 - ai-last,30,2.5208,1.3919,26,0.0009,0.0005
 jamming,ideal,ai-linear2 - ai-ewma,30,3.0692,1.2445,28,0.0000,0.0001
@@ -118,8 +142,11 @@ jamming,ideal,ai-linear3 - ai-linear3a,30,1.0428,1.1927,20,0.0842,0.0584
 jamming,ideal,ai-gbm3 - ai-linear3,30,0.7371,1.6402,17,0.3656,0.4557
 jamming,ideal,ai-linear3 - ai-ewma,30,2.1308,1.6006,24,0.0108,0.0047
 jamming,ideal,ai-gbm3 - ai-ewma,30,2.8679,0.7593,29,0.0000,0.0000
+jamming,ideal,ai-linear3 - ai-last,30,1.5824,1.5615,24,0.0472,0.0064
 jamming,ideal,ai-linear2 - aodv,30,6.9233,2.7708,26,0.0000,0.0000
 jamming,ideal,ai-linear2 - olsr,30,4.9996,3.2394,21,0.0037,0.0087
+jamming,ideal,ai-linear3 - aodv-np,30,6.9509,3.7699,22,0.0007,0.0016
+jamming,ideal,ai-linear3 - olsr-np,30,0.8286,2.6527,14,0.5279,0.7457
 jamming,inband,ai-linear2 - ai-last,30,2.7346,0.6351,29,0.0000,0.0000
 jamming,inband,ai-linear2 - ai-ewma,100,2.2460,0.4771,94,0.0000,0.0000
 jamming,inband,ai-linear2 - ai-holt,30,2.5799,0.6969,28,0.0000,0.0000
@@ -131,8 +158,11 @@ jamming,inband,ai-linear3 - ai-linear3a,30,-0.4251,0.8053,14,0.2892,0.6496
 jamming,inband,ai-gbm3 - ai-linear3,30,-0.1409,0.7576,10,0.7065,0.2059
 jamming,inband,ai-linear3 - ai-ewma,100,2.3419,0.5588,92,0.0000,0.0000
 jamming,inband,ai-gbm3 - ai-ewma,30,2.2868,0.6213,27,0.0000,0.0000
+jamming,inband,ai-linear3 - ai-last,30,2.6792,0.6323,28,0.0000,0.0000
 jamming,inband,ai-linear2 - aodv,30,7.2692,2.7029,28,0.0000,0.0000
 jamming,inband,ai-linear2 - olsr,30,5.3455,2.8780,22,0.0007,0.0008
+jamming,inband,ai-linear3 - aodv-np,30,8.1799,3.2953,26,0.0000,0.0000
+jamming,inband,ai-linear3 - olsr-np,30,2.0575,2.5523,17,0.1100,0.2286
 jamming,-,linear2 inband - ideal,30,0.3459,1.0467,18,0.5044,0.3654
 nodefail,ideal,ai-linear2 - ai-last,30,-0.0616,0.1406,13,0.3775,0.6306
 nodefail,ideal,ai-linear2 - ai-ewma,30,0.0075,0.0843,9,0.8561,0.8755
@@ -145,8 +175,11 @@ nodefail,ideal,ai-linear3 - ai-linear3a,30,0.0075,0.0695,9,0.8257,0.9587
 nodefail,ideal,ai-gbm3 - ai-linear3,30,-0.5170,1.0955,11,0.3424,0.8431
 nodefail,ideal,ai-linear3 - ai-ewma,30,0.0025,0.0734,9,0.9448,0.9826
 nodefail,ideal,ai-gbm3 - ai-ewma,30,-0.5145,1.0929,9,0.3436,0.4926
+nodefail,ideal,ai-linear3 - ai-last,30,-0.0667,0.1431,12,0.3484,0.3671
 nodefail,ideal,ai-linear2 - aodv,30,3.8038,3.7704,21,0.0481,0.0039
 nodefail,ideal,ai-linear2 - olsr,30,8.4367,1.5628,30,0.0000,0.0000
+nodefail,ideal,ai-linear3 - aodv-np,30,4.8126,4.8925,21,0.0536,0.0073
+nodefail,ideal,ai-linear3 - olsr-np,30,8.3179,1.7732,30,0.0000,0.0000
 nodefail,inband,ai-linear2 - ai-last,30,0.3069,0.4800,13,0.2013,0.9291
 nodefail,inband,ai-linear2 - ai-ewma,100,0.1823,0.5603,44,0.5201,0.9039
 nodefail,inband,ai-linear2 - ai-holt,30,0.2101,0.4078,11,0.3008,0.9393
@@ -158,8 +191,11 @@ nodefail,inband,ai-linear3 - ai-linear3a,30,-0.1031,0.9641,9,0.8283,0.1994
 nodefail,inband,ai-gbm3 - ai-linear3,30,-1.5220,3.2485,16,0.3459,0.5400
 nodefail,inband,ai-linear3 - ai-ewma,100,0.7826,0.6663,50,0.0218,0.0138
 nodefail,inband,ai-gbm3 - ai-ewma,30,-1.1258,3.2919,21,0.4898,0.0288
+nodefail,inband,ai-linear3 - ai-last,30,0.2465,0.6361,15,0.4345,0.6938
 nodefail,inband,ai-linear2 - aodv,30,1.8667,4.2155,17,0.3726,0.5978
 nodefail,inband,ai-linear2 - olsr,30,6.4996,2.3443,27,0.0000,0.0000
+nodefail,inband,ai-linear3 - aodv-np,30,2.8201,5.3774,16,0.2923,0.7892
+nodefail,inband,ai-linear3 - olsr-np,30,6.3255,2.2759,26,0.0000,0.0000
 nodefail,-,linear2 inband - ideal,30,-1.9371,1.5498,6,0.0161,0.0003
 congestion,ideal,ai-linear2 - ai-last,30,5.8277,1.3855,29,0.0000,0.0000
 congestion,ideal,ai-linear2 - ai-ewma,30,2.6780,1.1590,26,0.0001,0.0000
@@ -172,8 +208,11 @@ congestion,ideal,ai-linear3 - ai-linear3a,30,-0.2566,0.6615,17,0.4340,0.9455
 congestion,ideal,ai-gbm3 - ai-linear3,30,0.1887,1.1949,20,0.7490,0.0798
 congestion,ideal,ai-linear3 - ai-ewma,30,2.5924,0.8545,26,0.0000,0.0000
 congestion,ideal,ai-gbm3 - ai-ewma,30,2.7811,1.4718,26,0.0006,0.0005
+congestion,ideal,ai-linear3 - ai-last,30,5.7421,1.1834,30,0.0000,0.0000
 congestion,ideal,ai-linear2 - aodv,30,13.9384,3.4290,30,0.0000,0.0000
 congestion,ideal,ai-linear2 - olsr,30,13.1248,2.7559,30,0.0000,0.0000
+congestion,ideal,ai-linear3 - aodv-np,30,10.3761,4.3176,30,0.0000,0.0000
+congestion,ideal,ai-linear3 - olsr-np,30,12.2590,2.7983,30,0.0000,0.0000
 congestion,inband,ai-linear2 - ai-last,30,10.9069,2.2802,28,0.0000,0.0000
 congestion,inband,ai-linear2 - ai-ewma,100,5.5611,1.1015,81,0.0000,0.0000
 congestion,inband,ai-linear2 - ai-holt,30,8.9547,2.5509,28,0.0000,0.0000
@@ -185,6 +224,9 @@ congestion,inband,ai-linear3 - ai-linear3a,30,-0.4201,1.6802,16,0.6129,0.9018
 congestion,inband,ai-gbm3 - ai-linear3,30,-1.3019,4.8814,15,0.5896,0.9354
 congestion,inband,ai-linear3 - ai-ewma,100,6.5317,1.0875,90,0.0000,0.0000
 congestion,inband,ai-gbm3 - ai-ewma,30,6.7522,5.1360,27,0.0118,0.0000
+congestion,inband,ai-linear3 - ai-last,30,11.2453,1.7178,30,0.0000,0.0000
 congestion,inband,ai-linear2 - aodv,30,10.3346,3.4690,24,0.0000,0.0000
 congestion,inband,ai-linear2 - olsr,30,9.5210,3.3818,26,0.0000,0.0000
+congestion,inband,ai-linear3 - aodv-np,30,7.1962,4.9184,26,0.0056,0.0001
+congestion,inband,ai-linear3 - olsr-np,30,9.0792,3.5810,27,0.0000,0.0000
 congestion,-,linear2 inband - ideal,30,-3.6038,1.6043,2,0.0001,0.0000

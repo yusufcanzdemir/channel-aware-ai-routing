@@ -103,7 +103,7 @@ def tests(df):
                      ("ai-ewma", "ai-last"), ("ai-oracle", "ai-linear2")]
             # Model v3 ablasyonu: her adım bir öncekine göre (kazanç nereden geliyor?) ve
             # klasik rakip EWMA'ya göre
-            comps += V3_STEPS + [(m, "ai-ewma") for m in V3_MODELS]
+            comps += V3_STEPS + [(m, "ai-ewma") for m in V3_MODELS] + [("ai-linear3", "ai-last")]
             for a, b in comps:
                 r = paired(df, sc, (a, pl), (b, pl))
                 if r:
@@ -119,6 +119,12 @@ def tests(df):
                 r = paired(df, sc, ("ai-linear2", pl), (ref, "-"))
                 if r:
                     rows.append({"scenario": sc, "plane": pl, "karsilastirma": f"ai-linear2 - {ref}",
+                                 **r})
+            # v3, yoklamasız (doğal halindeki) AODV/OLSR'ye karşı
+            for ref in ("aodv-np", "olsr-np"):
+                r = paired(df, sc, ("ai-linear3", pl), (ref, "-"))
+                if r:
+                    rows.append({"scenario": sc, "plane": pl, "karsilastirma": f"ai-linear3 - {ref}",
                                  **r})
         r = paired(df, sc, ("ai-linear2", "inband"), ("ai-linear2", "ideal"))
         if r:

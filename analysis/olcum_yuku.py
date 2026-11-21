@@ -69,6 +69,10 @@ def main():
          .reset_index())
     g.to_csv(REPO / "results/olcum_yuku.csv", index=False, float_format="%.3f")
     ref = df[df["routing"].isin(["aodv-np", "olsr-np"])]
+    # Referans noktaları (sunum sitesi için): yoklamasız AODV/OLSR, senaryo bazında
+    (ref.groupby(["routing", "scenario"])
+     .agg(pdr=("pdr", "mean"), yuk=("overhead", "mean")).reset_index()
+     .to_csv(REPO / "results/olcum_yuku_ref.csv", index=False, float_format="%.3f"))
 
     # --- Grafik: bozulmalı senaryoların ortalaması ---
     dist = g[g["scenario"].isin(DISTURBED)]
