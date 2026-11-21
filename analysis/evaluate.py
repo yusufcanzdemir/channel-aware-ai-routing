@@ -33,8 +33,16 @@ METH_NAMES = {"aodv": "AODV", "olsr": "OLSR", "ai-last": "Son ölçüm", "ai-ma"
               "ai-linear2": "Model v2", "ai-oracle": "Kâhin",
               "ai-linear2-ett": "v2 + gecikme (1)", "ai-linear2-ettw20": "v2 + gecikme (0.2)",
               "ai-linear2r": "v2 gerçekçi veri", "ai-linear3a": "v3 (+ yaş)",
-              "ai-linear3": "v3 (+ yaş + EWMA)"}
+              "ai-linear3": "v3 (+ yaş + EWMA)", "ai-gbm3": "v3 Gradient Boosting"}
 TEXT, MUTED, GRID, AXIS = "#0b0b0b", "#52514e", "#e1e0d9", "#c3c2b7"
+
+
+# Model v3 ablasyon zinciri: (yeni, önceki). Her adım tek bir şeyi değiştirir.
+V3_STEPS = [("ai-linear2r", "ai-linear2"),   # aynı girdiler, gerçekçi eğitim verisi
+            ("ai-linear3a", "ai-linear2r"),  # + bilginin yaşı
+            ("ai-linear3", "ai-linear3a"),   # + EWMA girdileri
+            ("ai-gbm3", "ai-linear3")]       # aynı girdiler, doğrusal olmayan model
+V3_MODELS = ["ai-linear3", "ai-gbm3"]
 
 
 def ci95(x):
@@ -92,6 +100,9 @@ def tests(df):
         for pl in ("ideal", "inband"):
             comps = [("ai-linear2", "ai-last"), ("ai-linear2", "ai-ewma"), ("ai-linear2", "ai-holt"),
                      ("ai-ewma", "ai-last"), ("ai-oracle", "ai-linear2")]
+            # Model v3 ablasyonu: her adım bir öncekine göre (kazanç nereden geliyor?) ve
+            # klasik rakip EWMA'ya göre
+            comps += V3_STEPS + [(m, "ai-ewma") for m in V3_MODELS]
             for a, b in comps:
                 r = paired(df, sc, (a, pl), (b, pl))
                 if r:
@@ -265,6 +276,24 @@ def markdown(s, t):
                               (t["karsilastirma"] == comp)]
                         cells.append(f"{r['fark'].iloc[0]:+.1f} (p {fmt_p(r['p_ttest'].iloc[0])})"
                                      if len(r) else "-")
+                L.append(f"| {SCEN_NAMES[sc]} | {pl} | " + " | ".join(cells) + " |")
+    if t["karsilastirma"].isin([f"{a} - {b}" for a, b in V3_STEPS]).any():
+        names = {"ai-linear2r - ai-linear2": "gerçekçi veri", "ai-linear3a - ai-linear2r": "+ yaş",
+                 "ai-linear3 - ai-linear3a": "+ EWMA", "ai-gbm3 - ai-linear3": "doğrusal olmayan"}
+        comps = list(names) + [f"{m} - ai-ewma" for m in V3_MODELS]
+        L += ["", "## Model v3: kazanç nereden geliyor? (ablasyon)", "",
+              "Her sütun bir adımın katkısı: bir önceki modele göre eşli fark (puan). Son iki "
+              "sütun klasik rakip EWMA'ya göre fark. p: eşli t-testi. Ayrıntı: ml/train_v3.py.", "",
+              "| Senaryo | Düzlem | " + " | ".join(names.values()) +
+              " | v3 lineer − EWMA | v3 GB − EWMA |",
+              "|" + " --- |" * (2 + len(comps))]
+        for sc in scen:
+            for pl in ("ideal", "inband"):
+                cells = []
+                for comp in comps:
+                    r = t[(t["scenario"] == sc) & (t["plane"] == pl) & (t["karsilastirma"] == comp)]
+                    cells.append(f"{r['fark'].iloc[0]:+.1f} (p {fmt_p(r['p_ttest'].iloc[0])})"
+                                 if len(r) else "-")
                 L.append(f"| {SCEN_NAMES[sc]} | {pl} | " + " | ".join(cells) + " |")
     ib = s[(s["plane"] == "inband") & (s["method"] == "ai-linear2")]
     if len(ib):
